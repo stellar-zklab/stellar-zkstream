@@ -1,11 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
-  "contracts/*",
+    "contracts/stream",
+    "contracts/zk_verifier",
+    "contracts/token_wrapper",
 ]
 
 [workspace.dependencies]
-soroban-sdk = "27"
+soroban-sdk = { version = "22.0.0" }
 
 [profile.release]
 opt-level = "z"
@@ -16,8 +18,3 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
-
-# For more information about this profile see https://developers.stellar.org/docs/build/smart-contracts/example-contracts/logging#cargotoml-profile
-[profile.release-with-logs]
-inherits = "release"
-debug-assertions = true

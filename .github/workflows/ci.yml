@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  contracts:
+    name: Contracts (Build · Test · Lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+          components: clippy, rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo build --release --target wasm32v1-none
+      - run: cargo test --all --features testutils
+
+  circuits:
+    name: Circuits (Compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Circom
+        run: |
+          curl -fsSL https://github.com/iden3/circom/releases/latest/download/circom-linux-amd64 -o circom
+          chmod +x circom && sudo mv circom /usr/local/bin/
+      - run: npm install -g snarkjs
+      - name: Install circomlib
+        working-directory: circuits
+        run: npm install circomlib
+      - name: Compile circuits
+        run: |
+          circom circuits/range_proof/range_proof.circom --r1cs --wasm --sym -o circuits/range_proof/
+          circom circuits/stream_nullifier/nullifier.circom --r1cs --wasm --sym -o circuits/stream_nullifier/
