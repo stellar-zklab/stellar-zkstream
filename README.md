@@ -174,8 +174,7 @@ stellar-zkstream/
 │   └── stream_nullifier/   # Circom ZK nullifier circuit (anti double-spend)
 ├── sdk/                    # TypeScript SDK
 ├── frontend/               # React application UI
-├── tools/
-│   └── circom2soroban/     # CLI tool converting snarkjs JSON to Soroban bytes
+├── tools/                  # CLI tooling (circom2soroban converter)
 ├── docs/                   # Architecture, ZK specs, deployment guides
 └── scripts/
     └── deploy.sh           # Testnet deployment script
