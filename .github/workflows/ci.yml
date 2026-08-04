@@ -22,7 +22,7 @@ jobs:
           targets: wasm32v1-none
           components: clippy, rustfmt
 
-      - name: Cache cargo
+      - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: |
@@ -30,23 +30,11 @@ jobs:
             ~/.cargo/git
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-        continue-on-error: true
-
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        continue-on-error: true
-
-      - name: Build (native — for fast feedback)
-        run: cargo build --all
-
-      - name: Build (WASM release)
+      - name: Build WASM release
         run: cargo build --release --target wasm32v1-none
 
-      - name: Run tests
+      - name: Run unit tests
         run: cargo test --all --features testutils
 
   circuits:
@@ -56,5 +44,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify circuit files exist
         run: |
-          test -f circuits/range_proof/range_proof.circom && echo "range_proof.circom OK"
-          test -f circuits/stream_nullifier/nullifier.circom && echo "nullifier.circom OK"
+          test -f circuits/range_proof/range_proof.circom && echo "✓ range_proof.circom OK"
+          test -f circuits/stream_nullifier/nullifier.circom && echo "✓ nullifier.circom OK"

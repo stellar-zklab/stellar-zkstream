@@ -1,6 +1,9 @@
-# Rust's output directory
-target
-
-# Local settings
-.soroban
-.stellar
+target/
+.env
+circuits/*/target/
+circuits/*/*.r1cs
+circuits/*/*.sym
+circuits/*/witness.wtns
+circuits/*/proof.json
+circuits/*/public.json
+node_modules/
