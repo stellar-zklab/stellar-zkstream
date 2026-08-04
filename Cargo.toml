@@ -8,10 +8,7 @@ members = [
 
 [workspace.dependencies]
 soroban-sdk = { version = "22.0.0" }
-
-[patch.crates-io]
-# Lock ed25519-dalek to 2.1.0 to prevent soroban-env-host compilation error with 3.0.0
-ed25519-dalek = { version = "=2.1.0" }
+ed25519-dalek = "=2.1.0"
 
 [profile.release]
 opt-level = "z"
