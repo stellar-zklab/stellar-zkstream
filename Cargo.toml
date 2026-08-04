@@ -8,7 +8,6 @@ members = [
 
 [workspace.dependencies]
 soroban-sdk = { version = "22.0.0" }
-ed25519-dalek = { version = "=2.1.1", default-features = false }
 
 [profile.release]
 opt-level = "z"
