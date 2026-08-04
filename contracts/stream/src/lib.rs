@@ -2,13 +2,12 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short,
-    Address, Bytes, BytesN, Env, Vec,
+    Address, Bytes, BytesN, Env, IntoVal, Vec,
 };
 
 mod events;
 mod storage;
 
-/// Data stored on-chain per payment stream.
 #[derive(Clone)]
 #[contracttype]
 pub struct StreamData {
@@ -39,7 +38,6 @@ pub struct StreamContract;
 
 #[contractimpl]
 impl StreamContract {
-    /// Initialize with admin address and ZK verifier contract address.
     pub fn initialize(env: Env, admin: Address, verifier_contract: Address) {
         admin.require_auth();
         storage::set_admin(&env, &admin);
@@ -47,8 +45,6 @@ impl StreamContract {
         storage::set_stream_count(&env, 0u64);
     }
 
-    /// Create a payment stream gated by a ZK range proof.
-    /// Tokens are escrowed in this contract immediately.
     pub fn create_stream(
         env: Env,
         sender: Address,
@@ -65,16 +61,15 @@ impl StreamContract {
         assert!(end_time > start_time, "end_time must be after start_time");
         assert!(start_time >= env.ledger().timestamp(), "start_time in past");
 
-        // Verify ZK range proof via verifier contract
         let verifier = storage::get_verifier(&env);
-        let verified: bool = env.invoke_contract(
-            &verifier,
-            &symbol_short!("vrfy_prf"),
-            soroban_sdk::vec![&env, proof.into_val(&env), public_inputs.into_val(&env)],
-        );
+        let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
+            &env,
+            proof.into_val(&env),
+            public_inputs.into_val(&env),
+        ];
+        let verified: bool = env.invoke_contract(&verifier, &symbol_short!("vrfy_prf"), args);
         assert!(verified, "invalid range proof");
 
-        // Escrow tokens
         soroban_sdk::token::TokenClient::new(&env, &token)
             .transfer(&sender, &env.current_contract_address(), &total_amount);
 
@@ -97,7 +92,6 @@ impl StreamContract {
         id
     }
 
-    /// Withdraw vested tokens. Requires a ZK nullifier proof to prevent double-spend.
     pub fn withdraw(
         env: Env,
         stream_id: u64,
@@ -112,13 +106,13 @@ impl StreamContract {
         assert!(caller == stream.recipient, "only recipient can withdraw");
         assert!(!storage::nullifier_used(&env, &nullifier_hash), "nullifier already used");
 
-        // Verify nullifier proof
         let verifier = storage::get_verifier(&env);
-        let verified: bool = env.invoke_contract(
-            &verifier,
-            &symbol_short!("vrfy_prf"),
-            soroban_sdk::vec![&env, nullifier_proof.into_val(&env), public_inputs.into_val(&env)],
-        );
+        let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
+            &env,
+            nullifier_proof.into_val(&env),
+            public_inputs.into_val(&env),
+        ];
+        let verified: bool = env.invoke_contract(&verifier, &symbol_short!("vrfy_prf"), args);
         assert!(verified, "invalid nullifier proof");
 
         let now = env.ledger().timestamp();
@@ -136,7 +130,6 @@ impl StreamContract {
         claimable
     }
 
-    /// Cancel a stream. Sender gets unvested tokens, recipient gets any vested amount.
     pub fn cancel_stream(env: Env, stream_id: u64, caller: Address) {
         caller.require_auth();
         let mut stream = storage::get_stream(&env, stream_id);
@@ -145,16 +138,15 @@ impl StreamContract {
 
         let now = env.ledger().timestamp();
         let vested = Self::claimable_internal(&stream, now);
-        let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
+        let token = soroban_sdk::token::TokenClient::new(&env, &stream.token);
 
         if vested > 0 {
-            token_client.transfer(&env.current_contract_address(), &stream.recipient, &vested);
+            token.transfer(&env.current_contract_address(), &stream.recipient, &vested);
         }
         let remaining = stream.total_amount - stream.withdrawn_amount - vested;
         if remaining > 0 {
-            token_client.transfer(&env.current_contract_address(), &stream.sender, &remaining);
+            token.transfer(&env.current_contract_address(), &stream.sender, &remaining);
         }
-
         stream.active = false;
         stream.withdrawn_amount += vested;
         storage::set_stream(&env, stream_id, &stream);
