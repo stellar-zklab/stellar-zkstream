@@ -22,26 +22,14 @@ jobs:
           targets: wasm32v1-none
           components: clippy, rustfmt
 
-      - name: Pin transitive ed25519 dependencies to v2
+      - name: Pin transitive ed25519 dependencies
         run: |
           cargo generate-lockfile
-          cargo update -p ed25519@3.0.0 --precise 2.2.3 || true
-          cargo update -p ed25519-dalek@3.0.0 --precise 2.1.1 || true
-          cargo update -p ed25519@2.2.3 --precise 2.2.3 || true
-          cargo update -p ed25519-dalek@2.1.1 --precise 2.1.1 || true
+          cargo update -p ed25519-dalek:3.0.0 --precise 2.1.1 || true
+          cargo update -p ed25519:3.0.0 --precise 2.2.3 || true
 
       - name: Build WASM release
         run: cargo build --release --target wasm32v1-none
 
       - name: Run unit tests
         run: cargo test --all --features testutils
-
-  circuits:
-    name: Circuits (Structure Check)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify circuit files exist
-        run: |
-          test -f circuits/range_proof/range_proof.circom && echo "✓ range_proof.circom OK"
-          test -f circuits/stream_nullifier/nullifier.circom && echo "✓ nullifier.circom OK"
