@@ -1,29 +1,36 @@
-# Contributing to stellar-zkstream
+# Contributing Guidelines
 
-## Stellar Drips Wave
+Thank you for your interest in contributing! We welcome pull requests, bug reports, feature proposals, and documentation improvements from the developer community.
 
-This repo participates in the [Stellar Drips Wave](https://drips.network) program.
-
-Browse [issues labelled `stellardrips`](https://github.com/stellar-zklab/stellar-zkstream/issues?q=label%3Astellardrips+is%3Aopen)
-and apply via the Drips Wave dashboard.
-
-| Label | Points |
-|---|---|
-| `trivial` | 100 pts |
-| `medium-complexity` | 150 pts |
-| `high-complexity` | 200 pts |
-
-## Setup
+## 🛠️ Local Development Quickstart
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/stellar-zklab/stellar-zkstream.git
 cd stellar-zkstream
+
+# 2. Run smart contract unit tests
 cargo test --all --features testutils
+
+# 3. Build release WASM binaries
+cargo build --release --target wasm32v1-none
 ```
 
-## PR Requirements
+## 🌿 Git Branch & Commit Conventions
 
-- Links the issue (`Closes #N`)
-- Tests added and passing
-- `cargo clippy` and `cargo fmt` clean
-- CI passes
+Please use conventional commit prefixes for clean commit histories:
+- `feat:` New features or contract functionality
+- `fix:` Bug fixes or contract logic patches
+- `docs:` Documentation, inline comments, or README updates
+- `test:` Unit tests or integration test suites
+- `ci:` GitHub Actions CI workflow updates
+
+Example: `feat(stream): add rate limiting per sender address`
+
+## 📋 Pull Request Process
+
+1. Fork the repository and create your branch from `main`.
+2. Ensure all smart contract unit tests pass (`cargo test --all --features testutils`).
+3. Verify that code formatting adheres to standard Rust formatting (`cargo fmt -- --check`).
+4. Submit your Pull Request with a descriptive summary of your changes.
+
