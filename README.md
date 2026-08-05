@@ -5,7 +5,6 @@
 
 [![CI](https://github.com/stellar-zklab/stellar-zkstream/actions/workflows/ci.yml/badge.svg)](https://github.com/stellar-zklab/stellar-zkstream/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Stellar Drips Wave](https://img.shields.io/badge/Stellar-Drips%20Wave-blueviolet)](https://drips.network)
 [![Soroban Version](https://img.shields.io/badge/Soroban-v22.0.0-orange)](https://developers.stellar.org)
 
 ---
@@ -112,38 +111,18 @@ $$V(t_{\text{now}}) = \min\left( \text{TotalAmount}, \frac{\text{TotalAmount} \c
 
 #### `initialize(env: Env, admin: Address, verifier_contract: Address)`
 Initializes contract state with administrator address and the target `zk_verifier` contract address.
-- **Access Control**: `admin.require_auth()`
-- **Storage Tier**: Writes to `instance()` storage.
 
 #### `create_stream(env: Env, sender: Address, recipient: Address, token: Address, total_amount: i128, start_time: u64, end_time: u64, proof: Bytes, public_inputs: Vec<BytesN<32>>) -> u64`
 Creates a payment stream, verifies the Groth16 ZK range proof, and escrows tokens.
-- **Parameters**:
-  - `sender`: Stream funder address.
-  - `recipient`: Stream beneficiary address.
-  - `token`: SEP-41 token contract address.
-  - `total_amount`: Total token amount in stroops (i128).
-  - `start_time` & `end_time`: Stream duration Unix timestamps.
-  - `proof`: 256-byte Groth16 proof (`A | B | C`).
-  - `public_inputs`: Public inputs vector.
-- **Returns**: Unique `stream_id` (`u64`).
 
 #### `withdraw(env: Env, stream_id: u64, caller: Address, nullifier_hash: BytesN<32>, nullifier_proof: Bytes, public_inputs: Vec<BytesN<32>>) -> i128`
 Withdraws currently vested tokens for the recipient using a ZK nullifier proof.
-- **Returns**: Amount withdrawn (`i128`).
 
 #### `cancel_stream(env: Env, stream_id: u64, caller: Address)`
 Cancels an active stream (sender only). Pays recipient vested portion and returns unvested remainder to sender.
 
 #### `claimable_amount(env: Env, stream_id: u64) -> i128`
 View function returning current withdrawable tokens for a stream ID without modifying state.
-
----
-
-### 2. `ZkVerifierContract` (`contracts/zk_verifier`)
-
-#### `vrfy_prf(env: Env, proof: Bytes, public_inputs: Vec<BytesN<32>>) -> bool`
-Executes Groth16 BN254 verification using native host functions.
-- **Proof format**: `A` (64 bytes) + `B` (128 bytes) + `C` (64 bytes) = 256 bytes total.
 
 ---
 
@@ -170,8 +149,8 @@ stellar-zkstream/
 │   ├── zk_verifier/        # Groth16 BN254 verifier contract
 │   └── token_wrapper/      # SEP-41 token wrapper utilities
 ├── circuits/
-│   ├── range_proof/        # Circom ZK range proof circuit (min <= amount <= max)
-│   └── stream_nullifier/   # Circom ZK nullifier circuit (anti double-spend)
+│   ├── range_proof/        # Circom ZK range proof circuit
+│   └── stream_nullifier/   # Circom ZK nullifier circuit
 ├── sdk/                    # TypeScript SDK
 ├── frontend/               # React application UI
 ├── tools/                  # CLI tooling (circom2soroban converter)
@@ -184,24 +163,9 @@ stellar-zkstream/
 
 ## Developer Quick Start
 
-### Prerequisites
-
-```bash
-# 1. Rust + Cargo
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add wasm32v1-none
-
-# 2. Stellar CLI
-curl -fsSL https://github.com/stellar/stellar-cli/raw/main/install.sh | sh
-
-# 3. Circom & snarkjs
-npm install -g snarkjs
-```
-
 ### Build & Test Contracts
 
 ```bash
-# Clone the repository
 git clone https://github.com/stellar-zklab/stellar-zkstream.git
 cd stellar-zkstream
 
@@ -212,59 +176,28 @@ cargo test --all --features testutils
 cargo build --release --target wasm32v1-none
 ```
 
-### Compile ZK Circuits
-
-```bash
-cd circuits
-
-# Install circuit dependencies
-npm install circomlib
-
-# Compile range proof circuit
-circom range_proof/range_proof.circom --r1cs --wasm --sym -o range_proof/
-
-# Compile nullifier circuit
-circom stream_nullifier/nullifier.circom --r1cs --wasm --sym -o stream_nullifier/
-```
-
-### Testnet Deployment
-
-```bash
-cp .env.example .env
-# Configure STELLAR_ACCOUNT in .env
-bash scripts/deploy.sh
-```
-
 ---
 
-## Security & Threat Model Analysis
+## 🛡️ Security & Threat Model Analysis
 
 | Threat Vector | Mitigation Strategy | Status |
 |---|---|---|
 | **Double Withdrawal Attack** | Nullifier hash checked against `persistent()` storage before withdrawal | ✅ Enforced on-chain |
 | **Front-Running Claims** | Nullifiers bound to specific `stream_id` via Poseidon hash | ✅ Cryptographically Bound |
 | **Proof Replay Attack** | Verification keys stored per contract instance & validated against inputs | ✅ Enforced |
-| **Overflow / Precision Loss** | Fixed-point multiplication ordered to prevent overflow ($A \cdot t_{\text{elapsed}} / t_{\text{total}}$) | ✅ Verified |
-| **Unauthorized Cancellation** | `require_auth()` enforced on `sender` address | ✅ Enforced |
+| **Overflow / Precision Loss** | Fixed-point multiplication ordered to prevent overflow | ✅ Verified |
 
 ---
 
-## 🌊 Contributing — Stellar Drips Wave
+## 🤝 Contributing & Community Roadmap
 
-`stellar-zkstream` participates in the **[Stellar Drips Wave](https://drips.network)** open-source reward program.
-
-### Point System & Complexity Categories
-
-| Category | Points | Tasks |
-|---|---|---|
-| 🔴 **High Complexity** | 200 pts | Groth16 host function verification, Circom circuits, nullifier logic |
-| 🟡 **Medium Complexity** | 150 pts | SDK client development, React frontend pages, fuzzing tests |
-| 🟢 **Trivial Complexity** | 100 pts | Documentation, deploy scripts, benchmarking tools |
+`stellar-zkstream` is an open-source protocol built for the Stellar ecosystem. We welcome contributions from developers, security researchers, and financial protocol builders!
 
 ### How to Contribute
-1. Browse open issues tagged `stellardrips` on our [GitHub Issues Page](https://github.com/stellar-zklab/stellar-zkstream/issues).
-2. Claim the issue on the [Drips Wave Dashboard](https://drips.network).
-3. Implement, write unit tests, and submit a PR linking the issue number.
+1. **Explore Issues**: Check out open tasks tagged [`good-first-issue`](https://github.com/stellar-zklab/stellar-zkstream/issues?q=is%3Aissue+is%3Aopen+label%3A%22good-first-issue%22) or [`help-wanted`](https://github.com/stellar-zklab/stellar-zkstream/issues).
+2. **Fork & Branch**: Create a feature branch (`git checkout -b feat/your-feature`).
+3. **Test Your Changes**: Ensure all unit tests pass (`cargo test --all --features testutils`).
+4. **Submit a Pull Request**: Open a PR with a clear summary of your changes.
 
 ---
 
