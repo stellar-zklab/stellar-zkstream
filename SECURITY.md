@@ -4,4 +4,4 @@
 
 Report via [GitHub private advisory](https://github.com/stellar-zklab/stellar-zkstream/security/advisories/new).
 
-We respond within 48 hours and patch critical issues within 7 days.
+No formal response SLA exists yet — this is a small, early-stage project maintained by one person. Reports will be acknowledged as promptly as possible.

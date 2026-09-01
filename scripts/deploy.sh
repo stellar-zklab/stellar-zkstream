@@ -28,13 +28,13 @@ echo "🚀 Deploying zk_verifier contract..."
 VERIFIER_ID=$(stellar contract deploy \
   --wasm target/wasm32v1-none/release/zk_verifier.wasm \
   --source deployer \
-  --network "$NETWORK" || echo "CVERIFIER_MOCK_TESTNET_ADDRESS_56CHARS_LONG_SOROBAN_ID")
+  --network "$NETWORK")
 
 echo "🚀 Deploying stream escrow contract..."
 STREAM_ID=$(stellar contract deploy \
   --wasm target/wasm32v1-none/release/stream.wasm \
   --source deployer \
-  --network "$NETWORK" || echo "CSTREAM_MOCK_TESTNET_ADDRESS_56CHARS_LONG_SOROBAN_ID")
+  --network "$NETWORK")
 
 echo ""
 echo "═══════════════════════════════════════════════════"

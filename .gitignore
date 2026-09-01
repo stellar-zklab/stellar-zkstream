@@ -7,3 +7,4 @@ circuits/*/witness.wtns
 circuits/*/proof.json
 circuits/*/public.json
 node_modules/
+frontend/dist/
