@@ -1,4 +1,3 @@
-#![no_std]
 use soroban_sdk::{Address, BytesN, Env, Vec};
 use crate::DataKey;
 use crate::StreamData;
