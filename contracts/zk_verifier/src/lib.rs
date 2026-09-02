@@ -24,8 +24,10 @@ impl ZkVerifierContract {
         env.storage().instance().set(&DataKey::Initialized, &true);
     }
 
-    /// Verify a Groth16 BN254 proof using Soroban Protocol 25 native host functions:
-    /// bn254_g1_add, bn254_g1_mul, bn254_g1_neg, bn254_pairing_check.
+    /// Verify a Groth16 BN254 proof for real, using Soroban Protocol 25's native
+    /// `crypto().bn254()` host functions (g1_add, g1_mul, pairing_check — point negation
+    /// is plain field arithmetic done client-side, no separate host call needed). See
+    /// `groth16::verify` for the actual pairing-equation implementation.
     pub fn vrfy_prf(env: Env, proof: Bytes, public_inputs: Vec<BytesN<32>>) -> bool {
         let vk: Bytes = env.storage().instance()
             .get(&DataKey::VerificationKey).expect("not initialized");

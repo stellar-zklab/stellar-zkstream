@@ -21,7 +21,7 @@ fn setup() -> (Env, Address, Address, Address, Address) {
     env.mock_all_auths();
     env.ledger().set(LedgerInfo {
         timestamp: 1_000_000,
-        protocol_version: 22,
+        protocol_version: 25,
         sequence_number: 10,
         network_id: Default::default(),
         base_reserve: 10,
@@ -88,7 +88,7 @@ fn test_cliff_vesting_zero_before_cliff() {
     // Set ledger timestamp to 1_020_000 (after start but BEFORE cliff)
     env.ledger().set(LedgerInfo {
         timestamp: 1_020_000,
-        protocol_version: 22,
+        protocol_version: 25,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
