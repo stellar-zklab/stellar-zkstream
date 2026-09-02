@@ -1,38 +1,46 @@
-# stellar-zkstream Soroban Protocol 25 Deployment Guide 🌊🔐
+# stellar-zkstream Deployment Guide
 
-This guide details how to deploy `stellar-zkstream` smart contracts to **Stellar Testnet** using Soroban Protocol 25 native BN254 host functions.
+Deploys `zk_verifier` and `stream` to Stellar testnet. Both contracts already pass their
+real test suite (`cargo test --all --features testutils`, see the repo README) before this
+guide is relevant — deployment doesn't substitute for that.
 
-## 📋 Prerequisites
-- **Stellar CLI**: v22.0.0+ (`cargo install --locked stellar-cli`)
-- **Rust Wasm Target**: `rustup target add wasm32v1-none`
-- **Binary Optimizer**: `wasm-opt` (from binaryen toolchain)
+## Prerequisites
+- **Stellar CLI**: `cargo install --locked stellar-cli`
+- **Rust Wasm target**: `rustup target add wasm32v1-none`
+- **Binary optimizer** (optional): `wasm-opt`, from the binaryen toolchain
 
-## 🌐 Network Configuration
+## Network
 - **Network**: `testnet`
 - **RPC URL**: `https://soroban-testnet.stellar.org:443`
-- **Network Passphrase**: `"Test SDF Network ; September 2015"`
+- **Passphrase**: `"Test SDF Network ; September 2015"`
 
-## 🚀 Step-by-Step Deployment
+## Deploy
 
-### 1. Generate & Fund Deployer Key
-```bash
-stellar keys generate deployer
-stellar keys fund deployer --network testnet
-```
-
-### 2. Run Automated Deployment Script
 ```bash
 bash scripts/deploy.sh
 ```
 
-### 3. Initialize Stream Contract
+This generates and friendbot-funds a `deployer` testnet identity if one doesn't already
+exist, builds both contracts, deploys them, initializes `stream` with the real deployed
+`zk_verifier` address, and writes the resulting contract IDs to
+`deployments/testnet.json`.
+
+## What deploy.sh deliberately does NOT do
+
+`zk_verifier.initialize(admin, verification_key)` is **not** called automatically. A real
+Groth16 verification key is required, and the only one this repo can currently produce is
+the toy `x*x=y` demo circuit's VK built in `contracts/zk_verifier/src/test.rs` — the actual
+`circuits/range_proof.circom` and `circuits/nullifier.circom` circuits aren't compiled into
+a VK yet (see the README's Current Status section). Initializing the deployed contract with
+a fabricated or empty key would recreate the exact kind of fabrication this project was
+rejected for the first time around, so it's left as an explicit, visible gap rather than
+silently faked.
+
+To initialize it once a real VK exists:
 ```bash
 stellar contract invoke \
-  --id <STREAM_CONTRACT_ID> \
+  --id <ZK_VERIFIER_CONTRACT_ID> \
   --source deployer \
   --network testnet \
-  -- \
-  initialize \
-  --admin <DEPLOYER_ADDRESS> \
-  --verifier_contract <VERIFIER_CONTRACT_ID>
+  -- initialize --admin <DEPLOYER_ADDRESS> --verification_key <VK_HEX_BYTES>
 ```
