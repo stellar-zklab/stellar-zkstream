@@ -2,6 +2,7 @@
 // here. See deployments/testnet.json (repo root) for where these addresses come from and
 // how to verify them independently on stellar.expert.
 import { Client as ContractClient } from '@stellar/stellar-sdk/contract';
+import { rpc } from '@stellar/stellar-sdk';
 import freighter from '@stellar/freighter-api';
 
 export const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
@@ -69,6 +70,19 @@ async function getClient(contractId: string, publicKey?: string) {
   });
 }
 
+/** The real, authoritative current time, straight from the network — not the local
+ * machine's clock. Trusting `Date.now()` here was a real bug: it silently produced
+ * timestamps that were already in the past by the time a transaction actually reached
+ * the network, because whatever machine is running this (this dev sandbox measurably,
+ * possibly others) has a clock that drifts from real time by more than a small buffer
+ * can cover. Computing offsets from the network's own `closeTime` instead makes this
+ * correct regardless of local clock drift. */
+async function getRealNetworkNowSeconds(): Promise<number> {
+  const server = new rpc.Server(RPC_URL);
+  const ledger = await server.getLatestLedger();
+  return Number(ledger.closeTime);
+}
+
 /** Read-only: simulates a real call against the real deployed range_proof verifier with
  * the real proof above. No wallet signature needed — this is exactly the same call
  * `stellar contract invoke ... -- vrfy_prf --send=no` makes, just from the browser. */
@@ -98,19 +112,21 @@ export interface OnChainStream {
  * real proof this demo has. Requires a connected wallet — the transaction is genuinely
  * built, simulated, signed by Freighter, and submitted to testnet.
  *
- * start_time must be computed with a generous buffer, not a tight one: `Client.from()`
- * makes several sequential RPC round-trips (fetch contract instance, fetch wasm, parse
- * spec, simulate) before the transaction is even built, and then Freighter needs real
- * human time to review and approve. A 30-second buffer measured this failing — by the
- * time simulation actually ran, real elapsed time had already pushed the ledger's
- * timestamp past start_time, tripping create_stream's own "start_time in past" check
- * with no readable message (release wasm strips panic strings, so it surfaces as a bare
- * "UnreachableCodeReached" trap) — confirmed by reproducing it standalone against the
- * real contract outside the browser entirely, then fixing it the same way.
+ * Timestamps are computed from the network's own real time (`getRealNetworkNowSeconds`),
+ * not the local machine's clock. Trusting `Date.now()` here was a real, measured bug:
+ * whatever machine ends up running this can have a clock that drifts from real network
+ * time by more than any reasonable fixed buffer, so start_time kept landing in the past
+ * by the time the transaction actually reached the network (surfacing as a bare
+ * "UnreachableCodeReached" trap, since release wasm strips panic message strings —
+ * confirmed by reproducing it standalone against the real contract outside the browser).
+ * `timeoutInSeconds` (the signed transaction ENVELOPE's own submission validity window —
+ * a separate mechanism from start_time, recomputed by the SDK at the moment signing
+ * actually happens) is set generously too, since it's still measured from local time and
+ * also needs to cover real human review-and-approve time in Freighter's popup.
  */
 export async function createRealDemoStream(senderPublicKey: string, recipient: string): Promise<number> {
   const client = await getClient(STREAM_CONTRACT_ID, senderPublicKey);
-  const now = Math.floor(Date.now() / 1000);
+  const now = await getRealNetworkNowSeconds();
   const START_BUFFER_SECONDS = 600;
   const STREAM_DURATION_SECONDS = 3600;
   const tx = await (client as any).create_stream(
@@ -126,14 +142,7 @@ export async function createRealDemoStream(senderPublicKey: string, recipient: s
       proof: Buffer.from(REAL_RANGE_PROOF_BYTES),
       public_inputs: REAL_RANGE_PROOF_PUBLIC_INPUTS.map((b) => Buffer.from(b)),
     },
-    // This governs the signed transaction ENVELOPE's own submission validity window — a
-    // completely separate timeout from start_time above. AssembledTransaction.sign()
-    // recomputes this window at the moment signing actually happens (not at build/
-    // simulate time), so it has to cover real human review-and-approve time in Freighter's
-    // popup, not just network latency. 30 seconds genuinely wasn't enough — confirmed by a
-    // real submitted transaction failing with tx_too_late because the human took longer
-    // than that to click approve.
-    { timeoutInSeconds: 300 }
+    { timeoutInSeconds: 1800 }
   );
   const sent = await tx.signAndSend();
   return sent.result as number;
