@@ -19,11 +19,19 @@ Privacy-Preserving Continuous Payment Streaming Protocol on Soroban (Groth16 ZK 
 
 ## Deployment
 
-`scripts/deploy.sh` deploys both contracts to Stellar testnet and initializes `stream` with
-`zk_verifier`'s real deployed address — see
-[`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md). `zk_verifier` itself is deliberately
-left un-initialized (see that guide for why); resulting contract IDs land in
-`deployments/testnet.json`.
+Both contracts are live on Stellar testnet (deployed 2026-09-03, see
+[`deployments/testnet.json`](deployments/testnet.json) — independently checkable on
+[stellar.expert](https://stellar.expert/explorer/testnet)):
+
+| Contract | Address |
+|---|---|
+| `zk_verifier` | `CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU` |
+| `stream` | `CBZOPLAZMZN7VBKVEKBAAHCWEO25SLQTFVPHN4FJNIGHMIZA4RZ7FDQ6` |
+
+`stream` is initialized with `zk_verifier`'s real deployed address above. `zk_verifier`
+itself is deliberately left un-initialized — see
+[`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) for why. `scripts/deploy.sh`
+reproduces this from scratch.
 
 ## 🚀 Quick Start
 ```bash

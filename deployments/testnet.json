@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "deployed_at": "2026-09-03T03:36:36Z",
+  "deployer": "GAUZ4T6UT7XMGOL6WYPWWSYPZQ7ZLILCAS2ROYCH5ILHHOWQYUGVRTAB",
+  "contracts": {
+    "zk_verifier": "CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU",
+    "stream": "CBZOPLAZMZN7VBKVEKBAAHCWEO25SLQTFVPHN4FJNIGHMIZA4RZ7FDQ6"
+  },
+  "notes": {
+    "zk_verifier": "Deployed but NOT initialized — needs a real Groth16 verification key. See docs/DEPLOYMENT_GUIDE.md."
+  }
+}
