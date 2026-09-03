@@ -126,7 +126,14 @@ export async function createRealDemoStream(senderPublicKey: string, recipient: s
       proof: Buffer.from(REAL_RANGE_PROOF_BYTES),
       public_inputs: REAL_RANGE_PROOF_PUBLIC_INPUTS.map((b) => Buffer.from(b)),
     },
-    { timeoutInSeconds: 30 }
+    // This governs the signed transaction ENVELOPE's own submission validity window — a
+    // completely separate timeout from start_time above. AssembledTransaction.sign()
+    // recomputes this window at the moment signing actually happens (not at build/
+    // simulate time), so it has to cover real human review-and-approve time in Freighter's
+    // popup, not just network latency. 30 seconds genuinely wasn't enough — confirmed by a
+    // real submitted transaction failing with tx_too_late because the human took longer
+    // than that to click approve.
+    { timeoutInSeconds: 300 }
   );
   const sent = await tx.signAndSend();
   return sent.result as number;
