@@ -9,29 +9,30 @@ Privacy-Preserving Continuous Payment Streaming Protocol on Soroban (Groth16 ZK 
 
 ## Current Status — what's real vs. not
 
-**`contracts/stream` — real.** `create_stream`, `withdraw` (nullifier-gated, correct linear vesting with cliff), `cancel_stream` (correctly splits vested/unvested funds between sender and recipient), and `create_batch_streams` (atomic multi-stream creation) are all implemented and tested.
+**`contracts/stream` — real.** `create_stream`, `withdraw` (nullifier-gated, correct linear vesting with cliff), `cancel_stream` (correctly splits vested/unvested funds between sender and recipient), and `create_batch_streams` (atomic multi-stream creation) are all implemented and tested. Now holds two verifier addresses (`range_verifier`, `nullifier_verifier`) instead of one — see `circuits/` below for why.
 
-**`contracts/zk_verifier` — real.** `verify()` in `contracts/zk_verifier/src/groth16.rs` performs an actual Groth16 pairing check against Soroban Protocol 25's native BN254 host functions (`env.crypto().bn254()`: `g1_add`, `g1_mul`, `pairing_check`) — this required bumping the project from `soroban-sdk` v22 to v25, since BN254 support doesn't exist before v25. Verified with a genuine Groth16 proof generated via `arkworks` in the test suite (not a mock): the contract correctly accepts a real valid proof, correctly rejects a proof presented against the wrong public input, and explicitly rejects degenerate point-at-infinity inputs (a real edge case found during testing — see `groth16::is_zero`'s doc comment). `stream`'s `withdraw`/`cancel_stream` calls through to this for real now.
+**`contracts/zk_verifier` — real, and now actually initialized with the real circuits' VKs.** `verify()` in `contracts/zk_verifier/src/groth16.rs` performs an actual Groth16 pairing check against Soroban Protocol 25's native BN254 host functions (`env.crypto().bn254()`: `g1_add`, `g1_mul`, `pairing_check`) — this required bumping the project from `soroban-sdk` v22 to v25, since BN254 support doesn't exist before v25. It correctly rejects a proof presented against the wrong public input, and explicitly rejects degenerate point-at-infinity inputs (a real edge case found during testing — see `groth16::is_zero`'s doc comment). Two separate deployments now exist — one per circuit, since `range_proof` and `nullifier` have different VKs and one `zk_verifier` instance only holds one — each initialized with the real VK from an actual Groth16 trusted-setup pipeline run against the real circuits (see `circuits/` below), not the toy demo circuit this was originally verified with. `stream`'s `create_stream`/`withdraw` call through to the matching one for real.
 
 **`contracts/token_wrapper` — not implemented.** A bare `#[contract]` with a single `version() -> 1` function; the SEP-41 allowance-based wrapper described in its own doc comment doesn't exist yet. Not deployed (see Deployment below).
 
-**`circuits/` — real Circom source, not yet compiled into this project's actual verifying key.** `range_proof.circom` and `nullifier.circom` exist and describe the real circuits this protocol needs, but nobody has run them through a trusted setup yet — there's no compiled verifying key from *these* circuits checked in or loaded anywhere. `zk_verifier` itself is a genuine, working Groth16 verifier for any valid proof/VK pair (see above); it just isn't yet initialized with a VK that actually corresponds to `range_proof`/`nullifier`.
+**`circuits/` — real, and now actually compiled into this project's real verifying keys.** `range_proof.circom` and `nullifier.circom` have been run through an actual Groth16 trusted-setup pipeline (Powers of Tau + circuit-specific phase 2 + a real contribution each — see [`circuits/README.md`](circuits/README.md) for the full reproducible steps and an important caveat: this is a genuine but single-contributor setup, not a production multi-party ceremony). The resulting VKs are what the two `zk_verifier` deployments below are actually initialized with. `contracts/zk_verifier/src/test.rs`'s `real_zkstream_circuits` test module feeds a real proof for each real circuit through the actual contract logic and confirms it verifies — not a re-derivation, an independent round-trip check.
 
 ## Deployment
 
-Both contracts are live on Stellar testnet (deployed 2026-09-03, see
+All three contracts are live on Stellar testnet (deployed 2026-09-03, see
 [`deployments/testnet.json`](deployments/testnet.json) — independently checkable on
 [stellar.expert](https://stellar.expert/explorer/testnet)):
 
 | Contract | Address |
 |---|---|
-| `zk_verifier` | `CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU` |
-| `stream` | `CBZOPLAZMZN7VBKVEKBAAHCWEO25SLQTFVPHN4FJNIGHMIZA4RZ7FDQ6` |
+| `zk_verifier` (range_proof) | `CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU` |
+| `zk_verifier` (nullifier) | *pending redeploy — see below* |
+| `stream` | *pending redeploy — see below* |
 
-`stream` is initialized with `zk_verifier`'s real deployed address above. `zk_verifier`
-itself is deliberately left un-initialized — see
-[`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) for why. `scripts/deploy.sh`
-reproduces this from scratch.
+`stream` is initialized with both verifiers' real deployed addresses. Both `zk_verifier`
+instances are initialized with their circuit's real VK — see
+[`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md). `scripts/deploy.sh` reproduces
+this from scratch.
 
 ## 🚀 Quick Start
 ```bash

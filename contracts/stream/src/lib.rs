@@ -42,7 +42,8 @@ pub enum DataKey {
     Stream(u64),
     StreamCount,
     Nullifier(BytesN<32>),
-    VerifierContract,
+    RangeVerifier,
+    NullifierVerifier,
     Admin,
     StreamsBySender(Address),
     StreamsByRecipient(Address),
@@ -53,10 +54,15 @@ pub struct StreamContract;
 
 #[contractimpl]
 impl StreamContract {
-    pub fn initialize(env: Env, admin: Address, verifier_contract: Address) {
+    /// `range_verifier` and `nullifier_verifier` must be two separate `zk_verifier`
+    /// deployments, each initialized with the VK for its own circuit — one `zk_verifier`
+    /// instance can't correctly serve both `range_proof` and `nullifier`, since they're
+    /// different circuits with different verification keys.
+    pub fn initialize(env: Env, admin: Address, range_verifier: Address, nullifier_verifier: Address) {
         admin.require_auth();
         storage::set_admin(&env, &admin);
-        storage::set_verifier(&env, &verifier_contract);
+        storage::set_range_verifier(&env, &range_verifier);
+        storage::set_nullifier_verifier(&env, &nullifier_verifier);
         storage::set_stream_count(&env, 0u64);
     }
 
@@ -79,7 +85,7 @@ impl StreamContract {
         assert!(cliff_time >= start_time && cliff_time <= end_time, "invalid cliff_time");
         assert!(start_time >= env.ledger().timestamp(), "start_time in past");
 
-        let verifier = storage::get_verifier(&env);
+        let verifier = storage::get_range_verifier(&env);
         let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
             &env,
             proof.into_val(&env),
@@ -175,7 +181,7 @@ impl StreamContract {
         assert!(caller == stream.recipient, "only recipient can withdraw");
         assert!(!storage::nullifier_used(&env, &nullifier_hash), "nullifier used");
 
-        let verifier = storage::get_verifier(&env);
+        let verifier = storage::get_nullifier_verifier(&env);
         let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
             &env,
             nullifier_proof.into_val(&env),

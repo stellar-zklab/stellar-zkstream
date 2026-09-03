@@ -1,10 +1,17 @@
 target/
 .env
 circuits/*/target/
-circuits/*/*.r1cs
-circuits/*/*.sym
-circuits/*/witness.wtns
-circuits/*/proof.json
-circuits/*/public.json
 node_modules/
 frontend/dist/
+
+# Real, regenerable trusted-setup/build artifacts (see circuits/README.md) — the
+# meaningful outputs (verification keys, final proving keys, an example proof) are
+# committed; the large or purely-intermediate ones are not.
+circuits/build/**/*.r1cs
+circuits/build/**/*.sym
+circuits/build/**/*.wtns
+circuits/build/**/*.wasm
+circuits/build/**/witness_calculator.js
+circuits/build/**/generate_witness.js
+circuits/build/**/*_0000.zkey
+circuits/build/*.ptau

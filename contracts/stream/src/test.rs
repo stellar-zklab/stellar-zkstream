@@ -48,7 +48,7 @@ fn test_create_stream_with_cliff_success() {
     let cid = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &cid);
     let admin = Address::generate(&env);
-    client.initialize(&admin, &verifier);
+    client.initialize(&admin, &verifier, &verifier);
 
     let id = client.create_stream(
         &sender, &recipient, &token,
@@ -73,7 +73,7 @@ fn test_cliff_vesting_zero_before_cliff() {
     let cid = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &cid);
     let admin = Address::generate(&env);
-    client.initialize(&admin, &verifier);
+    client.initialize(&admin, &verifier, &verifier);
 
     let id = client.create_stream(
         &sender, &recipient, &token,
@@ -106,7 +106,7 @@ fn test_batch_stream_creation() {
     let cid = env.register(StreamContract, ());
     let client = StreamContractClient::new(&env, &cid);
     let admin = Address::generate(&env);
-    client.initialize(&admin, &verifier);
+    client.initialize(&admin, &verifier, &verifier);
 
     let rec2 = Address::generate(&env);
     let mut batch = Vec::new(&env);

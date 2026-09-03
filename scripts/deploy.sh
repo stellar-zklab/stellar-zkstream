@@ -3,13 +3,12 @@
 # contract IDs in deployments/<network>.json. Requires the `stellar` CLI already
 # installed and on PATH.
 #
-# zk_verifier is deployed but deliberately left un-initialized: `initialize()` needs a
-# real Groth16 verification key, and the only one this repo can currently produce is the
-# toy `x*x=y` demo circuit's VK generated in contracts/zk_verifier/src/test.rs — the real
-# circuits in circuits/ (range_proof.circom, nullifier.circom) aren't compiled into a VK
-# yet. Initializing with an empty or made-up key would just be a different kind of
-# fabrication, so this step is left as an explicit manual follow-up — see
-# docs/DEPLOYMENT_GUIDE.md.
+# range_proof.circom and nullifier.circom are different circuits with different
+# verification keys, so this deploys TWO zk_verifier instances — one contract can't
+# correctly serve both. Each is initialized with the real VK produced by the trusted-setup
+# pipeline documented in circuits/README.md (not a placeholder — see that doc for how to
+# reproduce it, and contracts/zk_verifier/src/test.rs's real_zkstream_circuits module for
+# proof this exact VK/proof pairing round-trips through the actual contract logic).
 set -euo pipefail
 
 NETWORK="${STELLAR_NETWORK:-testnet}"
@@ -17,6 +16,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="$REPO_ROOT/deployments"
 OUT_FILE="$OUT_DIR/$NETWORK.json"
 mkdir -p "$OUT_DIR"
+
+RANGE_PROOF_VK_FILE="$REPO_ROOT/circuits/build/range_proof/range_proof_vk.hex"
+NULLIFIER_VK_FILE="$REPO_ROOT/circuits/build/nullifier/nullifier_vk.hex"
+if [ ! -f "$RANGE_PROOF_VK_FILE" ] || [ ! -f "$NULLIFIER_VK_FILE" ]; then
+  echo "Missing circuits/build/**/*_vk.hex — run the pipeline in circuits/README.md first." >&2
+  exit 1
+fi
 
 echo "Deploying stellar-zkstream to Stellar $NETWORK..."
 
@@ -29,20 +35,32 @@ if command -v wasm-opt &> /dev/null; then
     wasm-opt -Oz target/wasm32v1-none/release/stream.wasm -o target/wasm32v1-none/release/stream.wasm || true
 fi
 
-if ! stellar keys ls | grep -q "^deployer$"; then
+if ! stellar keys address deployer >/dev/null 2>&1; then
   echo "Generating deployer key..."
-  stellar keys generate deployer --global
+  stellar keys generate deployer
 fi
 stellar keys fund deployer --network "$NETWORK" || true
 DEPLOYER_ADDR=$(stellar keys address deployer)
 
 WASM_DIR="target/wasm32v1-none/release"
 
-echo "Deploying zk_verifier (left un-initialized — see script header)..."
-VERIFIER_ID=$(stellar contract deploy \
-  --wasm "$WASM_DIR/zk_verifier.wasm" \
-  --source deployer \
-  --network "$NETWORK")
+deploy_verifier() {
+  local vk_file="$1"
+  local id
+  id=$(stellar contract deploy \
+    --wasm "$WASM_DIR/zk_verifier.wasm" \
+    --source deployer \
+    --network "$NETWORK")
+  stellar contract invoke --id "$id" --source deployer --network "$NETWORK" \
+    -- initialize --admin "$DEPLOYER_ADDR" --verification_key "$(cat "$vk_file")" >&2
+  echo "$id"
+}
+
+echo "Deploying zk_verifier for range_proof, initialized with its real VK..."
+RANGE_VERIFIER_ID=$(deploy_verifier "$RANGE_PROOF_VK_FILE")
+
+echo "Deploying zk_verifier for nullifier, initialized with its real VK..."
+NULLIFIER_VERIFIER_ID=$(deploy_verifier "$NULLIFIER_VK_FILE")
 
 echo "Deploying stream escrow contract..."
 STREAM_ID=$(stellar contract deploy \
@@ -50,7 +68,7 @@ STREAM_ID=$(stellar contract deploy \
   --source deployer \
   --network "$NETWORK")
 stellar contract invoke --id "$STREAM_ID" --source deployer --network "$NETWORK" \
-  -- initialize --admin "$DEPLOYER_ADDR" --verifier_contract "$VERIFIER_ID"
+  -- initialize --admin "$DEPLOYER_ADDR" --range_verifier "$RANGE_VERIFIER_ID" --nullifier_verifier "$NULLIFIER_VERIFIER_ID"
 
 cat > "$OUT_FILE" <<EOF
 {
@@ -58,11 +76,13 @@ cat > "$OUT_FILE" <<EOF
   "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "deployer": "$DEPLOYER_ADDR",
   "contracts": {
-    "zk_verifier": "$VERIFIER_ID",
+    "range_proof_verifier": "$RANGE_VERIFIER_ID",
+    "nullifier_verifier": "$NULLIFIER_VERIFIER_ID",
     "stream": "$STREAM_ID"
   },
   "notes": {
-    "zk_verifier": "Deployed but NOT initialized — needs a real Groth16 verification key. See docs/DEPLOYMENT_GUIDE.md."
+    "range_proof_verifier": "zk_verifier initialized with the real range_proof.circom VK.",
+    "nullifier_verifier": "zk_verifier initialized with the real nullifier.circom VK."
   }
 }
 EOF

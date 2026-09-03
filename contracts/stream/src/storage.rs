@@ -5,11 +5,20 @@ use crate::StreamData;
 pub fn set_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&DataKey::Admin, admin);
 }
-pub fn set_verifier(env: &Env, v: &Address) {
-    env.storage().instance().set(&DataKey::VerifierContract, v);
+/// `range_proof.circom` and `nullifier.circom` are different circuits with different
+/// verification keys, so they need two separate `zk_verifier` deployments — one contract
+/// can only hold one VK at a time. See `create_stream`/`withdraw` for which is used where.
+pub fn set_range_verifier(env: &Env, v: &Address) {
+    env.storage().instance().set(&DataKey::RangeVerifier, v);
 }
-pub fn get_verifier(env: &Env) -> Address {
-    env.storage().instance().get(&DataKey::VerifierContract).expect("not initialized")
+pub fn get_range_verifier(env: &Env) -> Address {
+    env.storage().instance().get(&DataKey::RangeVerifier).expect("not initialized")
+}
+pub fn set_nullifier_verifier(env: &Env, v: &Address) {
+    env.storage().instance().set(&DataKey::NullifierVerifier, v);
+}
+pub fn get_nullifier_verifier(env: &Env) -> Address {
+    env.storage().instance().get(&DataKey::NullifierVerifier).expect("not initialized")
 }
 pub fn set_stream_count(env: &Env, n: u64) {
     env.storage().instance().set(&DataKey::StreamCount, &n);
