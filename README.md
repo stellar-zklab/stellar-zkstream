@@ -25,9 +25,14 @@ All three contracts are live on Stellar testnet (deployed 2026-09-03, see
 
 | Contract | Address |
 |---|---|
-| `zk_verifier` (range_proof) | `CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU` |
-| `zk_verifier` (nullifier) | *pending redeploy — see below* |
-| `stream` | *pending redeploy — see below* |
+| `zk_verifier` (range_proof) | `CARWCSIHZ7HCXDCCLRN2JX7SYDAKMZXI53M6AGUUXPRLLT3UJ3WIDLIY` |
+| `zk_verifier` (nullifier) | `CALDSWVU2LCI5N56AVSDYCTH7PO6BVT2TFU5WT5XQTJZNZBCOBD2EJR2` |
+| `stream` | `CDEJZ5GPOW5GMDTBMJ2WD7ENPKHBPETZFUGAZ76QMDGHT5LNAEG5TKH7` |
+
+Confirmed live: invoking the deployed range_proof verifier above with the real proof from
+`circuits/build/range_proof/{proof.json,public.json}` returns `true` — a genuine Groth16
+proof, for the project's actual circuit, verified on real Stellar testnet infrastructure,
+not just in a unit test.
 
 `stream` is initialized with both verifiers' real deployed addresses. Both `zk_verifier`
 instances are initialized with their circuit's real VK — see
