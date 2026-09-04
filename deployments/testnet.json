@@ -1,12 +1,14 @@
 {
   "network": "testnet",
-  "deployed_at": "2026-09-03T03:36:36Z",
+  "deployed_at": "2026-09-03T06:37:26Z",
   "deployer": "GAUZ4T6UT7XMGOL6WYPWWSYPZQ7ZLILCAS2ROYCH5ILHHOWQYUGVRTAB",
   "contracts": {
-    "zk_verifier": "CCDJG45RQIZH5LEABG3LTK3AUQDD7QAABJULOQKXIA5IBJDGBTASR7WU",
-    "stream": "CBZOPLAZMZN7VBKVEKBAAHCWEO25SLQTFVPHN4FJNIGHMIZA4RZ7FDQ6"
+    "range_proof_verifier": "CARWCSIHZ7HCXDCCLRN2JX7SYDAKMZXI53M6AGUUXPRLLT3UJ3WIDLIY",
+    "nullifier_verifier": "CALDSWVU2LCI5N56AVSDYCTH7PO6BVT2TFU5WT5XQTJZNZBCOBD2EJR2",
+    "stream": "CDEJZ5GPOW5GMDTBMJ2WD7ENPKHBPETZFUGAZ76QMDGHT5LNAEG5TKH7"
   },
   "notes": {
-    "zk_verifier": "Deployed but NOT initialized — needs a real Groth16 verification key. See docs/DEPLOYMENT_GUIDE.md."
+    "range_proof_verifier": "zk_verifier initialized with the real range_proof.circom VK.",
+    "nullifier_verifier": "zk_verifier initialized with the real nullifier.circom VK."
   }
 }
