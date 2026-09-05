@@ -7,6 +7,53 @@
 
 Privacy-Preserving Continuous Payment Streaming Protocol on Soroban (Groth16 ZK Range Proofs & Protocol 25 BN254 Host Functions).
 
+## Why this is a real ZK protocol, not a demo
+
+- **The origin of this ecosystem's real BN254 verifier.** This repo's `zk_verifier` contract was the first place a genuine Groth16 pairing check was proven to work against Soroban Protocol 25's native `env.crypto().bn254()` host functions — `stellar-zkident` later reused this exact contract unmodified for its own three verifier deployments.
+- **Real range and nullifier proofs, not opaque flags.** `create_stream` is gated by an actual on-chain Groth16 range-proof verification (proving a stream's amount falls within a committed range without revealing it), and `withdraw` by a real nullifier-proof check that also prevents double-spending a claim.
+- **A real edge case found and fixed during testing.** `groth16::is_zero` explicitly rejects degenerate point-at-infinity inputs — a genuine cryptographic footgun this project actually hit and documented, not a hypothetical.
+- **Confirmed live, not just unit-tested.** The deployed `range_proof` verifier has been invoked directly on testnet with the project's real proof/public-input files and returned `true` — see Deployment below.
+
+## Architecture
+
+```
++----------------------------+
+|           Sender           |
++----------------------------+
+            |  create_stream(range proof)
+            v
++----------------------------+
+|           stream           |
+|      (escrow + linear      |
+|     vesting w/ cliff)      |
++----------------------------+
+            |  verify() -- real Groth16 BN254 pairing check
+            v
++----------------------------+
+|        zk_verifier         |
+|       (range_proof)        |
++----------------------------+
+
++----------------------------+
+|         Recipient          |
++----------------------------+
+            |  withdraw(nullifier proof)
+            v
++----------------------------+
+|           stream           |
+|      (marks nullifier      |
+|      used, pays out)       |
++----------------------------+
+            |  verify() -- real Groth16 BN254 pairing check
+            v
++----------------------------+
+|        zk_verifier         |
+|        (nullifier)         |
++----------------------------+
+```
+
+Both verifiers perform real Groth16 BN254 pairing checks — no mocked verification on either path.
+
 ## Current Status — what's real vs. not
 
 **`contracts/stream` — real.** `create_stream`, `withdraw` (nullifier-gated, correct linear vesting with cliff), `cancel_stream` (correctly splits vested/unvested funds between sender and recipient), and `create_batch_streams` (atomic multi-stream creation) are all implemented and tested. Now holds two verifier addresses (`range_verifier`, `nullifier_verifier`) instead of one — see `circuits/` below for why.
@@ -39,8 +86,52 @@ instances are initialized with their circuit's real VK — see
 [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md). `scripts/deploy.sh` reproduces
 this from scratch.
 
+## Usage
+
+```typescript
+import { StellarZkStreamClient } from '@stellar-zklab/zkstream-sdk';
+import freighter from '@stellar/freighter-api';
+
+const zkstream = new StellarZkStreamClient({
+  streamContractId: 'CACRWU5VCHIGBMSJZMWDXE3L6UJNJIQ7O4FH32ER3M77AO3Z23562MPH', // live on testnet, see Deployment above
+  signTransaction: async (xdr, opts) => {
+    const { signedTxXdr } = await freighter.signTransaction(xdr, opts);
+    return signedTxXdr;
+  },
+});
+
+// proof/publicInputs come from a real snarkjs run against circuits/build/range_proof —
+// this SDK doesn't generate proofs itself, see the note at the top of sdk/src/client.ts.
+const streamId = await zkstream.createStream({
+  sender, recipient, token,
+  totalAmount: 1_000_0000000n,
+  startTime, cliffTime, endTime,
+  cancelable: true,
+  proof, publicInputs,
+});
+
+// claimable_amount() is computed by the contract's own real on-chain vesting math.
+const claimable = await zkstream.getClaimableAmount(streamId);
+```
+
+See [`sdk/README.md`](sdk/README.md) for the full API and [`circuits/README.md`](circuits/README.md) for how to generate a real range or nullifier proof.
+
+## Ecosystem
+
+Part of **stellar-zklab**'s Soroban Protocol 25 project suite, alongside:
+- [`soroban-yield-vault`](https://github.com/stellar-zklab/soroban-yield-vault) — real Blend Protocol V2 yield vault with Yearn V3 share math
+- [`stellar-zkident`](https://github.com/stellar-zklab/stellar-zkident) — self-sovereign DID + real Groth16 credentials, reusing this repo's `zk_verifier` contract unmodified
+
+All three share the same "real vs. not" documentation discipline and the same Protocol 25 BN254/testnet deployment conventions.
+
 ## 🚀 Quick Start
+
+**Prerequisites**: Rust with the `wasm32v1-none` target, Node.js 20+, and (only for regenerating circuits) `circom` + `snarkjs` — see [`circuits/README.md`](circuits/README.md).
+
 ```bash
+# Run the real contract test suite (5 for stream, 10 for zk_verifier)
 cargo test --all --features testutils
-cd frontend && npm run dev
+
+# Run the frontend against the real deployed contracts (connects Freighter, real stream calls)
+cd frontend && npm install && npm run dev
 ```
