@@ -59,6 +59,9 @@ impl StreamContract {
     /// instance can't correctly serve both `range_proof` and `nullifier`, since they're
     /// different circuits with different verification keys.
     pub fn initialize(env: Env, admin: Address, range_verifier: Address, nullifier_verifier: Address) {
+        if storage::has_admin(&env) {
+            panic!("already initialized");
+        }
         admin.require_auth();
         storage::set_admin(&env, &admin);
         storage::set_range_verifier(&env, &range_verifier);
@@ -118,24 +121,41 @@ impl StreamContract {
         id
     }
 
-    /// Atomic batch stream creation (Sablier V2 feature)
+    /// Atomic batch stream creation (Sablier V2 feature). Takes one proof and one
+    /// public_inputs entry per stream in `streams` (same index) and verifies each against
+    /// the range_verifier exactly as create_stream() does for a single stream — batching
+    /// the token transfer and storage writes doesn't mean batching away the ZK gating that
+    /// every other stream-creation path enforces.
     pub fn create_batch_streams(
         env: Env,
         sender: Address,
         token: Address,
         streams: Vec<BatchStreamParam>,
-        proof: Bytes,
-        public_inputs: Vec<BytesN<32>>,
+        proofs: Vec<Bytes>,
+        public_inputs: Vec<Vec<BytesN<32>>>,
     ) -> Vec<u64> {
         sender.require_auth();
+        assert!(proofs.len() == streams.len(), "one proof required per stream");
+        assert!(public_inputs.len() == streams.len(), "one public_inputs entry required per stream");
+
         let mut created_ids: Vec<u64> = Vec::new(&env);
         let mut total_batch_amount: i128 = 0;
+        let verifier = storage::get_range_verifier(&env);
 
-        for s in streams.iter() {
+        for i in 0..streams.len() {
+            let s = streams.get(i).unwrap();
             assert!(s.total_amount > 0, "amount positive");
             assert!(s.end_time > s.start_time, "end after start");
             assert!(s.cliff_time >= s.start_time && s.cliff_time <= s.end_time, "invalid cliff");
             total_batch_amount += s.total_amount;
+
+            let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
+                &env,
+                proofs.get(i).unwrap().into_val(&env),
+                public_inputs.get(i).unwrap().into_val(&env),
+            ];
+            let verified: bool = env.invoke_contract(&verifier, &symbol_short!("vrfy_prf"), args);
+            assert!(verified, "invalid range proof");
         }
 
         soroban_sdk::token::TokenClient::new(&env, &token)
@@ -162,8 +182,6 @@ impl StreamContract {
             events::emit_stream_created(&env, id, &stream);
             created_ids.push_back(id);
         }
-        let _ = proof;
-        let _ = public_inputs;
         created_ids
     }
 

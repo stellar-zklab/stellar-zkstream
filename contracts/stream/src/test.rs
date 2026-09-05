@@ -16,6 +16,16 @@ impl MockVerifier {
     }
 }
 
+#[contract]
+struct RejectingVerifier;
+
+#[contractimpl]
+impl RejectingVerifier {
+    pub fn vrfy_prf(_env: Env, _proof: Bytes, _inputs: Vec<BytesN<32>>) -> bool {
+        false
+    }
+}
+
 fn setup() -> (Env, Address, Address, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
@@ -127,8 +137,71 @@ fn test_batch_stream_creation() {
         cancelable: false,
     });
 
-    let ids = client.create_batch_streams(&sender, &token, &batch, &Bytes::new(&env), &Vec::new(&env));
+    let proofs = Vec::from_array(&env, [Bytes::new(&env), Bytes::new(&env)]);
+    let public_inputs = Vec::from_array(&env, [Vec::new(&env), Vec::new(&env)]);
+    let ids = client.create_batch_streams(&sender, &token, &batch, &proofs, &public_inputs);
     assert_eq!(ids.len(), 2);
     assert_eq!(client.get_stream(&0u64).total_amount, 100_0000000i128);
     assert_eq!(client.get_stream(&1u64).total_amount, 200_0000000i128);
+}
+
+#[test]
+#[should_panic(expected = "one proof required per stream")]
+fn test_batch_stream_creation_rejects_mismatched_proof_count() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let mut batch = Vec::new(&env);
+    batch.push_back(BatchStreamParam {
+        recipient: recipient.clone(),
+        total_amount: 100_0000000i128,
+        start_time: 1_001_000,
+        cliff_time: 1_001_000,
+        end_time: 1_100_000,
+        cancelable: true,
+    });
+    batch.push_back(BatchStreamParam {
+        recipient: recipient.clone(),
+        total_amount: 100_0000000i128,
+        start_time: 1_001_000,
+        cliff_time: 1_001_000,
+        end_time: 1_100_000,
+        cancelable: true,
+    });
+
+    // Two streams, but only one proof supplied — must be rejected outright rather than
+    // silently verifying the first stream and skipping the second.
+    let proofs = Vec::from_array(&env, [Bytes::new(&env)]);
+    let public_inputs = Vec::from_array(&env, [Vec::new(&env)]);
+    client.create_batch_streams(&sender, &token, &batch, &proofs, &public_inputs);
+}
+
+#[test]
+#[should_panic(expected = "invalid range proof")]
+fn test_batch_stream_creation_actually_calls_the_verifier_and_rejects_a_failing_proof() {
+    let (env, token, sender, recipient, _verifier) = setup();
+    // A verifier that always rejects — if create_batch_streams still discarded its proof
+    // arguments (the bug this fix closes), this stream would be created anyway.
+    let rejecting_verifier = env.register(RejectingVerifier, ());
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &rejecting_verifier, &rejecting_verifier);
+
+    let mut batch = Vec::new(&env);
+    batch.push_back(BatchStreamParam {
+        recipient,
+        total_amount: 100_0000000i128,
+        start_time: 1_001_000,
+        cliff_time: 1_001_000,
+        end_time: 1_100_000,
+        cancelable: true,
+    });
+
+    let proofs = Vec::from_array(&env, [Bytes::new(&env)]);
+    let public_inputs = Vec::from_array(&env, [Vec::new(&env)]);
+    client.create_batch_streams(&sender, &token, &batch, &proofs, &public_inputs);
 }
