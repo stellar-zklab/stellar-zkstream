@@ -4,6 +4,16 @@
   "description": "TypeScript SDK for stellar-zkstream on Stellar",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stellar-zklab/stellar-zkstream.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/stellar-zklab/stellar-zkstream#readme",
+  "bugs": {
+    "url": "https://github.com/stellar-zklab/stellar-zkstream/issues"
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run"
