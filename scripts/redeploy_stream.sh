@@ -29,6 +29,7 @@ if ! stellar keys address deployer >/dev/null 2>&1; then
   echo "No 'deployer' identity found. This script expects the SAME deployer used for the original deployment." >&2
   exit 1
 fi
+stellar keys fund deployer --network "$NETWORK" || true
 DEPLOYER_ADDR=$(stellar keys address deployer)
 EXPECTED_DEPLOYER=$(jq -r '.deployer' "$DEPLOYMENTS_FILE")
 if [ "$DEPLOYER_ADDR" != "$EXPECTED_DEPLOYER" ]; then
