@@ -27,7 +27,7 @@ All three contracts are live on Stellar testnet (deployed 2026-09-03, see
 |---|---|
 | `zk_verifier` (range_proof) | `CARWCSIHZ7HCXDCCLRN2JX7SYDAKMZXI53M6AGUUXPRLLT3UJ3WIDLIY` |
 | `zk_verifier` (nullifier) | `CALDSWVU2LCI5N56AVSDYCTH7PO6BVT2TFU5WT5XQTJZNZBCOBD2EJR2` |
-| `stream` | `CDEJZ5GPOW5GMDTBMJ2WD7ENPKHBPETZFUGAZ76QMDGHT5LNAEG5TKH7` |
+| `stream` | `CACRWU5VCHIGBMSJZMWDXE3L6UJNJIQ7O4FH32ER3M77AO3Z23562MPH` |
 
 Confirmed live: invoking the deployed range_proof verifier above with the real proof from
 `circuits/build/range_proof/{proof.json,public.json}` returns `true` — a genuine Groth16
