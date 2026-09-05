@@ -18,7 +18,12 @@ Recipient → [nullifier circuit] → Groth16 proof → zk_verifier contract →
 |----------------|---------------------------------------------|
 | stream         | Stream lifecycle: create, withdraw, cancel  |
 | zk_verifier   | Groth16 BN254 proof verifier (Protocol 25)  |
-| token_wrapper  | SEP-41 token interface utilities            |
+
+`stream` funds itself directly against any real SEP-41 token via `TokenClient::transfer()` —
+there used to be a third contract here, `token_wrapper`, meant to add an allowance-based
+wrapper on top of that, but it was removed 2026-09-05 as unnecessary: every real Stellar
+asset (native XLM included) is already SEP-41 compliant, so there was no gap left for it to
+fill. See the README's "Removed" note.
 
 ## ZK Circuits
 

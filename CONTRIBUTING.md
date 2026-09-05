@@ -42,8 +42,7 @@ Our development roadmap is structured across four milestone phases. We invite co
 │  Phase 4: Security Hardening & Mainnet Launch (Future)                 │
 │    ├── A real multi-party trusted-setup ceremony — today's is a       │
 │    │   genuine but single-contributor setup, not production-grade     │
-│    ├── Third-party audit — no audit has happened yet                  │
-│    └── `token_wrapper`: still an unimplemented stub                   │
+│    └── Third-party audit — no audit has happened yet                  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
