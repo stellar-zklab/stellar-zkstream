@@ -22,25 +22,28 @@ Our development roadmap is structured across four milestone phases. We invite co
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     DEVELOPMENT ROADMAP PHASES                          │
 │                                                                         │
-│  Phase 1: Smart Contracts & ZK Circuits (Scaffolded & Verified)        │
+│  Phase 1: Smart Contracts & Real ZK Circuits (Built & Tested)          │
 │    ├── Core stream escrow & linear vesting math                        │
-│    ├── Groth16 BN254 verifier contract                                 │
-│    └── Circom range proof & nullifier circuits                          │
+│    ├── Groth16 BN254 verifier contract, deployed twice (real VKs)      │
+│    └── Circom range proof & nullifier circuits, real trusted setup     │
 │                                                                         │
-│  Phase 2: Client SDKs & Developer Tooling (Active Contribution)        │
-│    ├── TypeScript SDK (@stellar-zklab/zkstream-sdk)                    │
-│    ├── circom2soroban CLI proof byte converter                         │
-│    └── Multi-wallet connectors (Freighter, Albedo, xBull)              │
+│  Phase 2: Client SDKs & Known Soundness Gap (Active Contribution)      │
+│    ├── TypeScript SDK (@stellar-zklab/zkstream-sdk) — real, tested    │
+│    ├── Bind the range proof's public inputs to the actual streamed   │
+│    │   amount — currently the proof and the on-chain total_amount    │
+│    │   argument aren't cross-checked (see README's known limitation) │
+│    └── In-browser proof generation (snarkjs) — today only one fixed, │
+│        precomputed demo proof/amount can be submitted                │
 │                                                                         │
 │  Phase 3: Event Indexers & Frontend Applications (Upcoming)            │
 │    ├── Soroban RPC event indexing daemon                               │
-│    ├── React streaming dashboard & stream management UI                │
-│    └── Payroll batch stream creation CLI                               │
+│    └── React streaming dashboard & stream management UI                │
 │                                                                         │
 │  Phase 4: Security Hardening & Mainnet Launch (Future)                 │
-│    ├── Property-based fuzz testing with proptest                       │
-│    ├── WASM bytecode size optimization (wasm-opt)                      │
-│    └── Timelocked emergency multi-sig governance                       │
+│    ├── A real multi-party trusted-setup ceremony — today's is a       │
+│    │   genuine but single-contributor setup, not production-grade     │
+│    ├── Third-party audit — no audit has happened yet                  │
+│    └── `token_wrapper`: still an unimplemented stub                   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
