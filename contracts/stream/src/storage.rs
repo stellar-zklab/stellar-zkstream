@@ -5,6 +5,9 @@ use crate::StreamData;
 pub fn set_admin(env: &Env, admin: &Address) {
     env.storage().instance().set(&DataKey::Admin, admin);
 }
+pub fn has_admin(env: &Env) -> bool {
+    env.storage().instance().has(&DataKey::Admin)
+}
 /// `range_proof.circom` and `nullifier.circom` are different circuits with different
 /// verification keys, so they need two separate `zk_verifier` deployments — one contract
 /// can only hold one VK at a time. See `create_stream`/`withdraw` for which is used where.
