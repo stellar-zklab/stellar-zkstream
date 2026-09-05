@@ -3,6 +3,7 @@ target/
 circuits/*/target/
 node_modules/
 frontend/dist/
+sdk/dist/
 
 # Real, regenerable trusted-setup/build artifacts (see circuits/README.md) — the
 # meaningful outputs (verification keys, final proving keys, an example proof) are
