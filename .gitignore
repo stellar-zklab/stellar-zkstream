@@ -16,3 +16,5 @@ circuits/build/**/witness_calculator.js
 circuits/build/**/generate_witness.js
 circuits/build/**/*_0000.zkey
 circuits/build/*.ptau
+
+.claude/
