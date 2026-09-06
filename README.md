@@ -4,8 +4,11 @@
 ![License](https://img.shields.io/badge/License-Apache_2.0-green)
 [![CI](https://github.com/stellar-zklab/stellar-zkstream/actions/workflows/ci.yml/badge.svg)](https://github.com/stellar-zklab/stellar-zkstream/actions/workflows/ci.yml)
 ![ZKP](https://img.shields.io/badge/Proof-Groth16_BN254-purple)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-stellar--zkstream.vercel.app-black?style=flat&logo=vercel)](https://stellar-zkstream.vercel.app/)
 
 Privacy-Preserving Continuous Payment Streaming Protocol on Soroban (Groth16 ZK Range Proofs & Protocol 25 BN254 Host Functions).
+
+**[🔗 Try the live demo](https://stellar-zkstream.vercel.app/)** — wired to the real deployed testnet contracts listed below, not a mockup.
 
 ## Why this is a real ZK protocol, not a demo
 
@@ -119,8 +122,8 @@ See [`sdk/README.md`](sdk/README.md) for the full API and [`circuits/README.md`]
 ## Ecosystem
 
 Part of **stellar-zklab**'s Soroban Protocol 25 project suite, alongside:
-- [`soroban-yield-vault`](https://github.com/stellar-zklab/soroban-yield-vault) — real Blend Protocol V2 yield vault with Yearn V3 share math
-- [`stellar-zkident`](https://github.com/stellar-zklab/stellar-zkident) — self-sovereign DID + real Groth16 credentials, reusing this repo's `zk_verifier` contract unmodified
+- [`soroban-yield-vault`](https://github.com/stellar-zklab/soroban-yield-vault) — real Blend Protocol V2 yield vault with Yearn V3 share math ([live demo](https://soroban-yield-vault.vercel.app/))
+- [`stellar-zkident`](https://github.com/stellar-zklab/stellar-zkident) — self-sovereign DID + real Groth16 credentials, reusing this repo's `zk_verifier` contract unmodified ([live demo](https://stellar-zkident.vercel.app/))
 
 All three share the same "real vs. not" documentation discipline and the same Protocol 25 BN254/testnet deployment conventions.
 
