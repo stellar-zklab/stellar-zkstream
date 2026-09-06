@@ -180,9 +180,8 @@ fn test_batch_stream_creation_rejects_mismatched_proof_count() {
 }
 
 /// A "token" whose `transfer` calls back into `cancel_stream` on its first invocation
-/// after being armed. Used to empirically confirm whether `cancel_stream` is vulnerable
-/// to reentrancy (its token.transfer() calls happen before the stream is marked inactive
-/// / withdrawn_amount is persisted, unlike `withdraw`, which updates storage first).
+/// after being armed. Used to empirically confirm what actually stops a reentrant
+/// cancel_stream call — see the test below for what this turned out to reveal.
 #[contract]
 struct ReentrantToken;
 
@@ -217,15 +216,19 @@ impl ReentrantToken {
 }
 
 #[test]
-#[should_panic(expected = "stream inactive")]
-fn test_cancel_stream_reentrancy_is_blocked_by_effects_before_interactions() {
+#[should_panic(expected = "Contract re-entry is not allowed")]
+fn test_cancel_stream_reentrancy_is_blocked_by_the_soroban_host_itself() {
     // Uses a malicious token in place of the real SEP-41 asset contract to confirm, by
-    // actually running it, that cancel_stream can no longer be reentered to pay out the
-    // same vested/unvested split twice. cancel_stream now persists `stream.active = false`
-    // and `withdrawn_amount` BEFORE making any token.transfer() call (matching the
-    // checks-effects-interactions ordering withdraw() already used), so the token's
-    // reentrant call back into cancel_stream sees the stream already inactive and panics
-    // -- which aborts the whole transaction rather than allowing a double payout.
+    // actually running it, what stops a reentrant cancel_stream call. Originally expected
+    // our own `stream.active` check (persisted before any token.transfer(), matching
+    // withdraw()'s checks-effects-interactions ordering) to be what catches the reentrant
+    // call. Running this for real on Soroban Protocol 25 showed otherwise: the host itself
+    // unconditionally refuses to let a contract be re-entered while it's still executing
+    // ("Contract re-entry is not allowed" — a HostError, not one of this contract's own
+    // asserts) and blocks the nested cancel_stream call before any of its own code runs.
+    // The checks-effects-interactions ordering in cancel_stream is still worth keeping as
+    // defense in depth and for consistency with withdraw(), but it isn't what's actually
+    // stopping this specific exploit — Soroban's own reentrancy guard is strictly stronger.
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().set(LedgerInfo {

@@ -254,11 +254,13 @@ impl StreamContract {
 
         // Persist the stream as inactive (and record the vested amount as withdrawn)
         // BEFORE making any external token transfer calls below -- the same
-        // checks-effects-interactions ordering `withdraw()` already uses. `token.transfer()`
-        // invokes another contract (an arbitrary SEP-41 token supplied at create_stream
-        // time), which can call back into this contract before returning; persisting state
-        // first means a reentrant cancel_stream/withdraw call sees `stream.active == false`
-        // and cannot pay out the same vested/unvested split a second time.
+        // checks-effects-interactions ordering `withdraw()` already uses, kept here as
+        // defense in depth and for consistency. In practice Soroban's own host refuses to
+        // let a contract be re-entered while it's still executing ("Contract re-entry is
+        // not allowed", confirmed by actually driving a malicious token through this exact
+        // path in test.rs), so a reentrant call into cancel_stream never reaches this
+        // function's own code at all -- this ordering isn't what's actually stopping that
+        // specific attack, the host itself is.
         stream.active = false;
         stream.withdrawn_amount += vested;
         storage::set_stream(&env, stream_id, &stream);
