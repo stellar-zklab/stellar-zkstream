@@ -67,6 +67,15 @@ Both verifiers perform real Groth16 BN254 pairing checks — no mocked verificat
 
 **`circuits/` — real, and now actually compiled into this project's real verifying keys.** `range_proof.circom` and `nullifier.circom` have been run through an actual Groth16 trusted-setup pipeline (Powers of Tau + circuit-specific phase 2 + a real contribution each — see [`circuits/README.md`](circuits/README.md) for the full reproducible steps and an important caveat: this is a genuine but single-contributor setup, not a production multi-party ceremony). The resulting VKs are what the two `zk_verifier` deployments below are actually initialized with. `contracts/zk_verifier/src/test.rs`'s `real_zkstream_circuits` test module feeds a real proof for each real circuit through the actual contract logic and confirms it verifies — not a re-derivation, an independent round-trip check.
 
+### Enforced Invariants → Test Mapping
+
+Two guarantees found genuinely broken during a 2026-09-06 audit, fixed, and now pinned by tests that would fail if either regressed:
+
+| Invariant | Mapped Test |
+|---|---|
+| `withdraw`'s nullifier can't be replayed against a different stream, or with an unrelated `nullifier_hash` not actually bound to the proof | `contracts/stream/src/test.rs` → `test_withdraw_rejects_nullifier_hash_not_bound_to_public_inputs`, `test_withdraw_rejects_a_replayed_nullifier` |
+| A reentrant `cancel_stream` call cannot pay out the same vested/unvested split twice | `contracts/stream/src/test.rs` → `test_cancel_stream_reentrancy_is_blocked_by_the_soroban_host_itself` (see that test's own comment — the actual guard turned out to be Soroban's host, not this contract's own ordering) |
+
 ## Deployment
 
 All three contracts are live on Stellar testnet (deployed 2026-09-03, see
