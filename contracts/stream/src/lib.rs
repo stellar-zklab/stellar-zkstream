@@ -197,6 +197,24 @@ impl StreamContract {
         let mut stream = storage::get_stream(&env, stream_id);
         assert!(stream.active, "stream not active");
         assert!(caller == stream.recipient, "only recipient can withdraw");
+
+        // Bind the caller-supplied `nullifier_hash` (the key used for the spent-nullifier
+        // check just below) to the ZK proof's actual public inputs. Without this, the two
+        // were independent, unchecked arguments: a caller could submit a valid
+        // nullifier_proof/public_inputs pair together with an unrelated, never-before-seen
+        // `nullifier_hash`, always pass the "not used" check, and replay the exact same
+        // proof indefinitely -- defeating the nullifier's entire double-spend/replay
+        // protection. The nullifier circuit's public input layout is
+        // `[stream_id, nullifier_hash]` (see circuits/stream_nullifier/nullifier.circom),
+        // so this also stops a proof generated for one stream_id being replayed against a
+        // different stream this same recipient happens to control.
+        assert!(public_inputs.len() == 2, "nullifier public_inputs must be [stream_id, nullifier_hash]");
+        let mut expected_stream_id_bytes = [0u8; 32];
+        expected_stream_id_bytes[24..32].copy_from_slice(&stream_id.to_be_bytes());
+        let expected_stream_id = BytesN::<32>::from_array(&env, &expected_stream_id_bytes);
+        assert!(public_inputs.get(0).unwrap() == expected_stream_id, "proof's stream_id doesn't match withdrawal target");
+        assert!(public_inputs.get(1).unwrap() == nullifier_hash, "nullifier_hash doesn't match proof's public input");
+
         assert!(!storage::nullifier_used(&env, &nullifier_hash), "nullifier used");
 
         let verifier = storage::get_nullifier_verifier(&env);
@@ -232,18 +250,26 @@ impl StreamContract {
 
         let now = env.ledger().timestamp();
         let vested = Self::claimable_internal(&stream, now);
-        let token = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-
-        if vested > 0 {
-            token.transfer(&env.current_contract_address(), &stream.recipient, &vested);
-        }
         let remaining = stream.total_amount - stream.withdrawn_amount - vested;
-        if remaining > 0 {
-            token.transfer(&env.current_contract_address(), &stream.sender, &remaining);
-        }
+
+        // Persist the stream as inactive (and record the vested amount as withdrawn)
+        // BEFORE making any external token transfer calls below -- the same
+        // checks-effects-interactions ordering `withdraw()` already uses. `token.transfer()`
+        // invokes another contract (an arbitrary SEP-41 token supplied at create_stream
+        // time), which can call back into this contract before returning; persisting state
+        // first means a reentrant cancel_stream/withdraw call sees `stream.active == false`
+        // and cannot pay out the same vested/unvested split a second time.
         stream.active = false;
         stream.withdrawn_amount += vested;
         storage::set_stream(&env, stream_id, &stream);
+
+        let token = soroban_sdk::token::TokenClient::new(&env, &stream.token);
+        if vested > 0 {
+            token.transfer(&env.current_contract_address(), &stream.recipient, &vested);
+        }
+        if remaining > 0 {
+            token.transfer(&env.current_contract_address(), &stream.sender, &remaining);
+        }
         events::emit_stream_cancelled(&env, stream_id, &caller);
     }
 
