@@ -62,6 +62,9 @@ Our development roadmap is structured across four milestone phases. We invite co
 git clone https://github.com/stellar-zklab/stellar-zkstream.git
 cd stellar-zkstream
 
+# Check for accidentally committed secrets or leftover local artifacts (.env, .claude/, etc.)
+bash scripts/check-source-artifacts.sh
+
 # Run unit tests across all contracts
 cargo test --all --features testutils
 
@@ -89,7 +92,7 @@ We follow Conventional Commits for transparent versioning:
 
 1. **Pick an Issue**: Browse open tasks on our [GitHub Issues Page](https://github.com/stellar-zklab/stellar-zkstream/issues). Look for [`good-first-issue`](https://github.com/stellar-zklab/stellar-zkstream/issues?q=is%3Aissue+is%3Aopen+label%3A%22good-first-issue%22) if you are new to the codebase.
 2. **Create a Branch**: `git checkout -b feat/your-feature-name`
-3. **Verify Locally**: Ensure `cargo test --all --features testutils` passes cleanly.
+3. **Verify Locally**: Run `bash scripts/check-source-artifacts.sh` and ensure `cargo test --all --features testutils` passes cleanly — the same checks CI runs.
 4. **Submit PR**: Open a Pull Request referencing the issue number (e.g. `Closes #12`).
 
 Thank you for building the future of private payments on Stellar! 🌊
