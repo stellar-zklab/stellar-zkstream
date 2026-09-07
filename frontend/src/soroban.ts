@@ -3,7 +3,10 @@
 // how to verify them independently on stellar.expert.
 import { Client as ContractClient } from '@stellar/stellar-sdk/contract';
 import { rpc } from '@stellar/stellar-sdk';
-import freighter from '@stellar/freighter-api';
+import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit/sdk';
+import { FreighterModule } from '@creit.tech/stellar-wallets-kit/modules/freighter';
+import { xBullModule } from '@creit.tech/stellar-wallets-kit/modules/xbull';
+import { Networks } from '@creit.tech/stellar-wallets-kit/types';
 
 export const NETWORK_PASSPHRASE = 'Test SDF Network ; September 2015';
 export const RPC_URL = 'https://soroban-testnet.stellar.org';
@@ -39,34 +42,38 @@ const REAL_RANGE_PROOF_PUBLIC_INPUTS_HEX = [
 export const REAL_RANGE_PROOF_BYTES = hexToBytes(REAL_RANGE_PROOF_HEX);
 export const REAL_RANGE_PROOF_PUBLIC_INPUTS = REAL_RANGE_PROOF_PUBLIC_INPUTS_HEX.map(hexToBytes);
 
-export class FreighterNotDetectedError extends Error {}
+// Scoped to just Freighter + xBull rather than the kit's full module list (which also
+// pulls in Ledger/Trezor hardware-wallet and WalletConnect support) — this is a testnet
+// demo, not a production wallet, so only the two lightest, most commonly available
+// options are wired in. init() is a one-time, module-level call since StellarWalletsKit's
+// methods are static.
+let walletKitReady = false;
+function ensureWalletKit(): void {
+  if (walletKitReady) return;
+  StellarWalletsKit.init({
+    modules: [new FreighterModule(), new xBullModule()],
+    network: Networks.TESTNET,
+  });
+  walletKitReady = true;
+}
 
+/** Opens the kit's real wallet-picker modal (Freighter or xBull), and returns the real
+ * connected address. The modal itself handles "wallet not installed" — there's no
+ * separate not-detected error to catch here the way the old Freighter-only code needed. */
 export async function connectWallet(): Promise<string> {
-  const { isConnected, error: connErr } = await freighter.isConnected();
-  if (connErr || !isConnected) {
-    throw new FreighterNotDetectedError(
-      'Freighter wallet extension not detected. Install it from freighter.app to use real wallet features.'
-    );
-  }
-  const { address, error } = await freighter.requestAccess();
-  if (error || !address) {
-    throw new Error(error?.message ?? 'Wallet access was not granted.');
-  }
-  const { network, error: netErr } = await freighter.getNetwork();
-  if (netErr) throw new Error(netErr.message ?? 'Could not read wallet network.');
-  if (network !== 'TESTNET') {
-    throw new Error(`Freighter is set to ${network}, but this app talks to Stellar testnet. Switch networks in Freighter.`);
-  }
+  ensureWalletKit();
+  const { address } = await StellarWalletsKit.authModal();
   return address;
 }
 
 async function getClient(contractId: string, publicKey?: string) {
+  ensureWalletKit();
   return ContractClient.from({
     contractId,
     networkPassphrase: NETWORK_PASSPHRASE,
     rpcUrl: RPC_URL,
     publicKey,
-    signTransaction: freighter.signTransaction,
+    signTransaction: StellarWalletsKit.signTransaction,
   });
 }
 
@@ -110,7 +117,7 @@ export interface OnChainStream {
 
 /** Real, live create_stream call against the real deployed stream contract, using the one
  * real proof this demo has. Requires a connected wallet — the transaction is genuinely
- * built, simulated, signed by Freighter, and submitted to testnet.
+ * built, simulated, signed by the connected wallet, and submitted to testnet.
  *
  * Timestamps are computed from the network's own real time (`getRealNetworkNowSeconds`),
  * not the local machine's clock. Trusting `Date.now()` here was a real, measured bug:
@@ -122,7 +129,7 @@ export interface OnChainStream {
  * `timeoutInSeconds` (the signed transaction ENVELOPE's own submission validity window —
  * a separate mechanism from start_time, recomputed by the SDK at the moment signing
  * actually happens) is set generously too, since it's still measured from local time and
- * also needs to cover real human review-and-approve time in Freighter's popup.
+ * also needs to cover real human review-and-approve time in the wallet's own popup.
  */
 export async function createRealDemoStream(senderPublicKey: string, recipient: string): Promise<number> {
   const client = await getClient(STREAM_CONTRACT_ID, senderPublicKey);

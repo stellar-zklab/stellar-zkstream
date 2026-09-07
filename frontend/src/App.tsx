@@ -48,7 +48,7 @@ export const App: React.FC = () => {
     try {
       const address = await connectWallet();
       setWalletAddress(address);
-      appendLog(`[REAL] Connected real Freighter wallet: ${address.substring(0, 8)}...`);
+      appendLog(`[REAL] Connected real wallet: ${address.substring(0, 8)}...`);
     } catch (err: any) {
       setWalletError(err.message ?? String(err));
       appendLog(`[REAL] Wallet connection failed: ${err.message ?? err}`);
@@ -136,7 +136,7 @@ export const App: React.FC = () => {
               onClick={handleConnect}
               style={{ padding: '0.5rem 1rem', background: '#1e293b', color: '#38bdf8', border: '1px solid #334155', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
             >
-              {walletAddress ? `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}` : 'Connect Freighter Wallet'}
+              {walletAddress ? `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}` : 'Connect Wallet'}
             </button>
           </div>
         </header>
