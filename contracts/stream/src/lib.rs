@@ -319,6 +319,36 @@ impl StreamContract {
         events::emit_stream_cancelled(&env, stream_id, &caller);
     }
 
+    /// Transfers the right to withdraw a stream's remaining/future proceeds to a new
+    /// address — modeled on Sablier v2's transferable stream NFTs, which make a stream a
+    /// tradeable asset (sellable, usable as collateral) rather than a fixed, non-transferable
+    /// claim. Only the current recipient can transfer, and only while the stream is still
+    /// active (a cancelled stream has nothing left to claim, so transferring it is
+    /// meaningless). `withdraw`/`cancel_stream` both re-read `stream.recipient` from storage
+    /// on every call, so the new recipient's rights take effect immediately with no other
+    /// code changes needed.
+    ///
+    /// Unlike Sablier, this doesn't require any off-chain secret hand-off: the withdrawal
+    /// nullifier (`circuits/stream_nullifier/nullifier.circom`) binds only to
+    /// `(secret, stream_id)`, not to any recipient identity — the new recipient picks their
+    /// own fresh `secret` and generates their own valid withdrawal proof independently, the
+    /// same way the original recipient did.
+    pub fn transfer_stream(env: Env, stream_id: u64, caller: Address, new_recipient: Address) {
+        caller.require_auth();
+        let mut stream = storage::get_stream(&env, stream_id);
+        assert!(stream.active, "cannot transfer an inactive stream");
+        assert!(caller == stream.recipient, "only the current recipient can transfer this stream");
+
+        let old_recipient = stream.recipient.clone();
+        storage::remove_stream_from_recipient(&env, &old_recipient, stream_id);
+        storage::add_stream_to_recipient(&env, &new_recipient, stream_id);
+
+        stream.recipient = new_recipient.clone();
+        storage::set_stream(&env, stream_id, &stream);
+
+        events::emit_stream_transferred(&env, stream_id, &old_recipient, &new_recipient);
+    }
+
     pub fn get_stream(env: Env, stream_id: u64) -> StreamData {
         storage::get_stream(&env, stream_id)
     }

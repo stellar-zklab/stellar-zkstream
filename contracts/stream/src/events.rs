@@ -19,3 +19,9 @@ pub fn emit_stream_cancelled(env: &Env, id: u64, sender: &Address) {
         (id, sender.clone()),
     );
 }
+pub fn emit_stream_transferred(env: &Env, id: u64, old_recipient: &Address, new_recipient: &Address) {
+    env.events().publish(
+        (symbol_short!("stream"), symbol_short!("transfer")),
+        (id, old_recipient.clone(), new_recipient.clone()),
+    );
+}
