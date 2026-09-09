@@ -42,7 +42,18 @@ export interface OnChainStream {
   end_time: bigint;
   active: boolean;
   cancelable: boolean;
+  curve: VestingCurve;
 }
+
+/** Matches the on-chain `VestingCurve` enum's expected encoding shape for the real Stellar
+ * SDK contract client (`{tag: "VariantName", values: [...]}` — the standard convention its
+ * ContractSpec-driven argument encoding uses for a Rust enum, whether tuple or unit variant).
+ * `Exponential`'s `values[0]` must be 2, 3, or 4; `Stepped`'s `values[0]` must be 2..=1000 —
+ * matching the bounds the contract itself enforces in `assert_valid_curve`. */
+export type VestingCurve =
+  | { tag: "Linear"; values: void }
+  | { tag: "Exponential"; values: readonly [number] }
+  | { tag: "Stepped"; values: readonly [number] };
 
 export interface CreateStreamParams {
   sender: string;
@@ -53,6 +64,8 @@ export interface CreateStreamParams {
   cliffTime: bigint;
   endTime: bigint;
   cancelable: boolean;
+  /** Defaults to a plain linear vesting schedule if not specified. */
+  curve?: VestingCurve;
   proof: Uint8Array;
   publicInputs: Uint8Array[];
 }
@@ -105,6 +118,7 @@ export class StellarZkStreamClient {
         cliff_time: params.cliffTime,
         end_time: params.endTime,
         cancelable: params.cancelable,
+        curve: params.curve ?? { tag: "Linear", values: undefined },
         proof: Buffer.from(params.proof),
         public_inputs: params.publicInputs.map((b) => Buffer.from(b)),
       },

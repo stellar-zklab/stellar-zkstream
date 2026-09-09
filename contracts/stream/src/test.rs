@@ -67,6 +67,7 @@ fn test_create_stream_with_cliff_success() {
         &1_010_000u64, // cliff (10s after start)
         &1_100_000u64, // end
         &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env),
         &Vec::new(&env),
     );
@@ -89,6 +90,7 @@ fn test_cliff_vesting_zero_before_cliff() {
         &sender, &recipient, &token,
         &1_000_0000000i128,
         &1_001_000u64, &1_050_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -127,6 +129,7 @@ fn test_batch_stream_creation() {
         cliff_time: 1_001_000,
         end_time: 1_100_000,
         cancelable: true,
+        curve: VestingCurve::Linear,
     });
     batch.push_back(BatchStreamParam {
         recipient: rec2.clone(),
@@ -135,6 +138,7 @@ fn test_batch_stream_creation() {
         cliff_time: 1_001_000,
         end_time: 1_100_000,
         cancelable: false,
+        curve: VestingCurve::Linear,
     });
 
     let proofs = Vec::from_array(&env, [Bytes::new(&env), Bytes::new(&env)]);
@@ -162,6 +166,7 @@ fn test_batch_stream_creation_rejects_mismatched_proof_count() {
         cliff_time: 1_001_000,
         end_time: 1_100_000,
         cancelable: true,
+        curve: VestingCurve::Linear,
     });
     batch.push_back(BatchStreamParam {
         recipient: recipient.clone(),
@@ -170,6 +175,7 @@ fn test_batch_stream_creation_rejects_mismatched_proof_count() {
         cliff_time: 1_001_000,
         end_time: 1_100_000,
         cancelable: true,
+        curve: VestingCurve::Linear,
     });
 
     // Two streams, but only one proof supplied — must be rejected outright rather than
@@ -256,6 +262,7 @@ fn test_cancel_stream_reentrancy_is_blocked_by_the_soroban_host_itself() {
         &sender, &recipient, &evil_token,
         &1_000_0000000i128,
         &1_001_000u64, &1_001_000u64, &1_100_000u64, &true, // no cliff, cancelable
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -301,6 +308,7 @@ fn test_withdraw_success_with_bound_nullifier() {
         &sender, &recipient, &token,
         &1_000_0000000i128,
         &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -336,6 +344,7 @@ fn test_withdraw_rejects_a_replayed_nullifier() {
         &sender, &recipient, &token,
         &1_000_0000000i128,
         &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -378,6 +387,7 @@ fn test_withdraw_rejects_nullifier_hash_not_bound_to_public_inputs() {
         &sender, &recipient, &token,
         &1_000_0000000i128,
         &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -414,6 +424,7 @@ fn test_cancel_stream_splits_vested_and_unvested_correctly() {
         &sender, &recipient, &token,
         &1_000_0000000i128,
         &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
         &Bytes::new(&env), &Vec::new(&env),
     );
 
@@ -462,6 +473,174 @@ fn test_batch_stream_creation_actually_calls_the_verifier_and_rejects_a_failing_
         cliff_time: 1_001_000,
         end_time: 1_100_000,
         cancelable: true,
+        curve: VestingCurve::Linear,
+    });
+
+    let proofs = Vec::from_array(&env, [Bytes::new(&env)]);
+    let public_inputs = Vec::from_array(&env, [Vec::new(&env)]);
+    client.create_batch_streams(&sender, &token, &batch, &proofs, &public_inputs);
+}
+
+#[test]
+fn test_exponential_curve_vests_quadratically_not_linearly() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_000_000u64, &1_000_000u64, &1_100_000u64, // start == cliff, 100_000s duration
+        &true,
+        &VestingCurve::Exponential(2),
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+
+    // Halfway through elapsed time, a quadratic curve (progress^2) should have vested only
+    // 25% of the total — not 50%, which is what Linear would give at this same timestamp.
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_050_000,
+        protocol_version: 25,
+        sequence_number: 11,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    assert_eq!(client.claimable_amount(&id), 250_0000000i128, "quadratic curve at 50% elapsed must vest 25%, not 50%");
+
+    // Fully elapsed: an exponential curve still reaches exactly 100% at end_time, same as Linear.
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_100_000,
+        protocol_version: 25,
+        sequence_number: 12,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    assert_eq!(client.claimable_amount(&id), 1_000_0000000i128, "curve must fully vest by end_time regardless of shape");
+}
+
+#[test]
+fn test_stepped_curve_vests_in_discrete_jumps_not_continuously() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_000_000u64, &1_000_000u64, &1_100_000u64, // 100_000s duration
+        &true,
+        &VestingCurve::Stepped(4), // 4 steps: 25% jumps every 25_000s
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+
+    // Just before the first step boundary (25_000s in) — zero steps completed, nothing vested.
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_024_999,
+        protocol_version: 25,
+        sequence_number: 11,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    assert_eq!(client.claimable_amount(&id), 0i128, "must vest nothing until the first step boundary is crossed");
+
+    // Exactly at the first step boundary — one of four steps completed, 25% vested.
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_025_000,
+        protocol_version: 25,
+        sequence_number: 12,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    assert_eq!(client.claimable_amount(&id), 250_0000000i128, "must jump to exactly 25% at the first step boundary");
+
+    // Halfway through elapsed time (two of four steps) — 50% vested, same as Linear would
+    // give here, since a step boundary happens to land exactly on the midpoint for 4 steps.
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_050_000,
+        protocol_version: 25,
+        sequence_number: 13,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+    assert_eq!(client.claimable_amount(&id), 500_0000000i128);
+}
+
+#[test]
+#[should_panic(expected = "exponential curve exponent must be 2..=4")]
+fn test_create_stream_rejects_an_out_of_range_exponential_exponent() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Exponential(10), // out of the supported 2..=4 range
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+}
+
+#[test]
+#[should_panic(expected = "stepped curve step_count must be 2..=1000")]
+fn test_create_stream_rejects_an_out_of_range_step_count() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Stepped(1), // below the supported 2..=1000 range
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+}
+
+#[test]
+#[should_panic(expected = "start_time in past")]
+fn test_create_batch_streams_rejects_a_past_start_time_like_create_stream_does() {
+    // Regression test: create_batch_streams was missing the same past-start-time guard
+    // create_stream already enforces, so a batch-created stream could be immediately
+    // partially/fully vested instead of following its intended vesting schedule.
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let mut batch = Vec::new(&env);
+    batch.push_back(BatchStreamParam {
+        recipient,
+        total_amount: 100_0000000i128,
+        start_time: 999_000, // before the ledger's current timestamp (1_000_000)
+        cliff_time: 999_000,
+        end_time: 1_100_000,
+        cancelable: true,
+        curve: VestingCurve::Linear,
     });
 
     let proofs = Vec::from_array(&env, [Bytes::new(&env)]);

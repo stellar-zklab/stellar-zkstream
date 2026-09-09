@@ -110,6 +110,18 @@
                         },
                         {
                           "key": {
+                            "symbol": "curve"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Linear"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
                             "symbol": "end_time"
                           },
                           "val": {
@@ -158,6 +170,18 @@
                           },
                           "val": {
                             "u64": "1001000"
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "curve"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Linear"
+                              }
+                            ]
                           }
                         },
                         {
@@ -407,6 +431,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "curve"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Linear"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "end_time"
                     },
                     "val": {
@@ -511,6 +547,18 @@
                     },
                     "val": {
                       "u64": "1001000"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "curve"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Linear"
+                        }
+                      ]
                     }
                   },
                   {
