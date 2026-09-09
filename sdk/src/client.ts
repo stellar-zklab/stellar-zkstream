@@ -156,6 +156,21 @@ export class StellarZkStreamClient {
     await tx.signAndSend();
   }
 
+  /** Real, live transfer_stream call — reassigns withdraw rights for a stream's remaining
+   * proceeds to `newRecipient`, the same way Sablier v2's transferable stream NFTs work.
+   * Requires `caller` to sign and to be the stream's CURRENT recipient; fails on a stream
+   * that's already been cancelled. No off-chain secret hand-off is needed for the new
+   * recipient to withdraw afterward — see the contract's own doc comment on
+   * `transfer_stream` for why. */
+  async transferStream(streamId: bigint, caller: string, newRecipient: string): Promise<void> {
+    const client = await this.getClient(this.streamContractId, caller);
+    const tx = await (client as any).transfer_stream(
+      { stream_id: streamId, caller, new_recipient: newRecipient },
+      { timeoutInSeconds: 1800 }
+    );
+    await tx.signAndSend();
+  }
+
   /** Read-only: a real stream's on-chain state. */
   async getStream(streamId: bigint): Promise<OnChainStream> {
     const client = await this.getClient(this.streamContractId);

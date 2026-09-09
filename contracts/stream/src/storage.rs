@@ -60,6 +60,19 @@ pub fn add_stream_to_recipient(env: &Env, r: &Address, id: u64) {
     ids.push_back(id);
     env.storage().persistent().set(&key, &ids);
 }
+/// Used when a stream's ownership transfers — removes `id` from the old recipient's index
+/// so `get_streams_by_recipient` doesn't keep listing a stream they no longer own.
+pub fn remove_stream_from_recipient(env: &Env, r: &Address, id: u64) {
+    let key = DataKey::StreamsByRecipient(r.clone());
+    let ids: Vec<u64> = env.storage().persistent().get(&key).unwrap_or(Vec::new(env));
+    let mut updated = Vec::new(env);
+    for existing_id in ids.iter() {
+        if existing_id != id {
+            updated.push_back(existing_id);
+        }
+    }
+    env.storage().persistent().set(&key, &updated);
+}
 pub fn get_streams_by_recipient(env: &Env, r: &Address) -> Vec<u64> {
     env.storage().persistent().get(&DataKey::StreamsByRecipient(r.clone())).unwrap_or(Vec::new(env))
 }

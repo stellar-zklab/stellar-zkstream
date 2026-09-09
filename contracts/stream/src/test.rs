@@ -647,3 +647,114 @@ fn test_create_batch_streams_rejects_a_past_start_time_like_create_stream_does()
     let public_inputs = Vec::from_array(&env, [Vec::new(&env)]);
     client.create_batch_streams(&sender, &token, &batch, &proofs, &public_inputs);
 }
+
+#[test]
+fn test_transfer_stream_moves_withdraw_rights_to_the_new_recipient() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+
+    let new_owner = Address::generate(&env);
+    client.transfer_stream(&id, &recipient, &new_owner);
+    assert_eq!(client.get_stream(&id).recipient, new_owner);
+
+    env.ledger().set(LedgerInfo {
+        timestamp: 1_050_500, // halfway vested
+        protocol_version: 25,
+        sequence_number: 11,
+        network_id: Default::default(),
+        base_reserve: 10,
+        min_temp_entry_ttl: 10,
+        min_persistent_entry_ttl: 10,
+        max_entry_ttl: 3110400,
+    });
+
+    // The NEW owner generates their own fresh nullifier proof (an arbitrary secret bound
+    // only to stream_id, not to any recipient identity) and successfully withdraws.
+    let nullifier_hash = BytesN::from_array(&env, &[42u8; 32]);
+    let public_inputs = nullifier_public_inputs(&env, id, &nullifier_hash);
+    let claimed = client.withdraw(&id, &new_owner, &nullifier_hash, &Bytes::new(&env), &public_inputs);
+    assert_eq!(claimed, 500_0000000i128);
+
+    let token_client = soroban_sdk::token::TokenClient::new(&env, &token);
+    assert_eq!(token_client.balance(&new_owner), 500_0000000i128, "funds must reach the NEW recipient, not the original one");
+}
+
+#[test]
+#[should_panic(expected = "only the current recipient can transfer this stream")]
+fn test_transfer_stream_rejects_a_caller_who_is_not_the_current_recipient() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+
+    let impostor = Address::generate(&env);
+    let someone_else = Address::generate(&env);
+    client.transfer_stream(&id, &impostor, &someone_else);
+}
+
+#[test]
+#[should_panic(expected = "cannot transfer an inactive stream")]
+fn test_transfer_stream_rejects_transferring_a_cancelled_stream() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+
+    client.cancel_stream(&id, &sender);
+
+    let new_owner = Address::generate(&env);
+    client.transfer_stream(&id, &recipient, &new_owner);
+}
+
+#[test]
+fn test_transfer_stream_updates_the_recipient_index_on_both_sides() {
+    let (env, token, sender, recipient, verifier) = setup();
+    let cid = env.register(StreamContract, ());
+    let client = StreamContractClient::new(&env, &cid);
+    let admin = Address::generate(&env);
+    client.initialize(&admin, &verifier, &verifier);
+
+    let id = client.create_stream(
+        &sender, &recipient, &token,
+        &1_000_0000000i128,
+        &1_001_000u64, &1_001_000u64, &1_100_000u64, &true,
+        &VestingCurve::Linear,
+        &Bytes::new(&env), &Vec::new(&env),
+    );
+    assert_eq!(client.get_streams_by_recipient(&recipient), Vec::from_array(&env, [id]));
+
+    let new_owner = Address::generate(&env);
+    client.transfer_stream(&id, &recipient, &new_owner);
+
+    assert_eq!(client.get_streams_by_recipient(&recipient).len(), 0, "old recipient must no longer be listed as owning this stream");
+    assert_eq!(client.get_streams_by_recipient(&new_owner), Vec::from_array(&env, [id]));
+}
