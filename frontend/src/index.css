@@ -23,3 +23,17 @@ input[type=number] {
 ::-webkit-scrollbar-track { background: #090d16; }
 ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+@keyframes zkstream-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes zkstream-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes zkstream-flash {
+  0% { background-color: rgba(94, 234, 212, 0.25); }
+  100% { background-color: transparent; }
+}

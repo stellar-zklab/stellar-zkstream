@@ -163,6 +163,8 @@ const claimable = await zkstream.getClaimableAmount(streamId);
 
 See [`sdk/README.md`](sdk/README.md) for the full API and [`circuits/README.md`](circuits/README.md) for how to generate a real range or nullifier proof.
 
+**Live claimable-amount polling and clearer on-chain verification status (added 2026-09-09).** The [live demo](https://stellar-zkstream.vercel.app/)'s Streams tab now re-reads each real stream's `claimable_amount()` every 4 seconds while the tab is open, with a live-pulse indicator — real reads against real contract state each time, not a client-side estimate (the vesting curve isn't always linear, so approximating it locally could show a number the contract wouldn't actually pay out). The "Verify Real Proof On-Chain" button also now shows an explicit status card while the real Groth16 BN254 pairing check runs (a genuine multi-second network round trip, not instant) and how long it actually took, instead of just a button label change — modeled on the "fail loud, not silent" principle already used in `stellar-gasless-relayer`'s config validation, applied here to a slow real operation instead of a fast one.
+
 ## 🚀 Quick start
 
 **Prerequisites:**
