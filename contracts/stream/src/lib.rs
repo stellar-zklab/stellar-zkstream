@@ -10,6 +10,27 @@ use soroban_sdk::{
 mod events;
 mod storage;
 
+/// How a stream's vested amount grows over time between `cliff_time` and `end_time`.
+/// Modeled on Sablier v2's "universal streaming engine" (linear, exponential, and stepped
+/// unlocks) — the org's own zkstream README already benchmarks against the Sablier v2 spec.
+///
+/// `Exponential(exponent)` is a back-loaded curve: vesting starts slow and accelerates,
+/// reaching `total_amount` exactly at `end_time` just like `Linear` does, just via a curved
+/// path instead of a straight line. `exponent` must be 2, 3, or 4 — kept small deliberately
+/// so the fixed-point math in `claimable_internal` never has to raise a scaled value to a
+/// power that risks i128 overflow (see the comment there for the actual bound).
+///
+/// `Stepped(step_count)` vests in `step_count` discrete jumps rather than continuously —
+/// e.g. a monthly-cliff vesting schedule with 12 steps, where the recipient's claimable
+/// balance jumps once per elapsed step instead of trickling every second.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub enum VestingCurve {
+    Linear,
+    Exponential(u32),
+    Stepped(u32),
+}
+
 #[derive(Clone)]
 #[contracttype]
 pub struct StreamData {
@@ -23,6 +44,7 @@ pub struct StreamData {
     pub end_time: u64,
     pub active: bool,
     pub cancelable: bool,
+    pub curve: VestingCurve,
 }
 
 #[derive(Clone)]
@@ -34,6 +56,22 @@ pub struct BatchStreamParam {
     pub cliff_time: u64,
     pub end_time: u64,
     pub cancelable: bool,
+    pub curve: VestingCurve,
+}
+
+/// Validates a curve's own parameters are within the bounds `claimable_internal` relies on
+/// to stay overflow-safe. Shared by `create_stream` and `create_batch_streams` so the two
+/// paths can't drift into accepting different curve bounds.
+fn assert_valid_curve(curve: &VestingCurve) {
+    match curve {
+        VestingCurve::Linear => {}
+        VestingCurve::Exponential(exponent) => {
+            assert!(*exponent >= 2 && *exponent <= 4, "exponential curve exponent must be 2..=4");
+        }
+        VestingCurve::Stepped(step_count) => {
+            assert!(*step_count >= 2 && *step_count <= 1000, "stepped curve step_count must be 2..=1000");
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -79,6 +117,7 @@ impl StreamContract {
         cliff_time: u64,
         end_time: u64,
         cancelable: bool,
+        curve: VestingCurve,
         proof: Bytes,
         public_inputs: Vec<BytesN<32>>,
     ) -> u64 {
@@ -87,6 +126,7 @@ impl StreamContract {
         assert!(end_time > start_time, "end_time must be after start_time");
         assert!(cliff_time >= start_time && cliff_time <= end_time, "invalid cliff_time");
         assert!(start_time >= env.ledger().timestamp(), "start_time in past");
+        assert_valid_curve(&curve);
 
         let verifier = storage::get_range_verifier(&env);
         let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
@@ -112,6 +152,7 @@ impl StreamContract {
             end_time,
             active: true,
             cancelable,
+            curve,
         };
         storage::set_stream(&env, id, &stream);
         storage::increment_stream_count(&env);
@@ -147,6 +188,8 @@ impl StreamContract {
             assert!(s.total_amount > 0, "amount positive");
             assert!(s.end_time > s.start_time, "end after start");
             assert!(s.cliff_time >= s.start_time && s.cliff_time <= s.end_time, "invalid cliff");
+            assert!(s.start_time >= env.ledger().timestamp(), "start_time in past");
+            assert_valid_curve(&s.curve);
             total_batch_amount += s.total_amount;
 
             let args: soroban_sdk::Vec<soroban_sdk::Val> = soroban_sdk::vec![
@@ -174,6 +217,7 @@ impl StreamContract {
                 end_time: s.end_time,
                 active: true,
                 cancelable: s.cancelable,
+                curve: s.curve.clone(),
             };
             storage::set_stream(&env, id, &stream);
             storage::increment_stream_count(&env);
@@ -292,11 +336,40 @@ impl StreamContract {
         Self::claimable_internal(&stream, env.ledger().timestamp())
     }
 
+    /// Fixed-point scale used for the curved progress fraction below — chosen so that even
+    /// the highest-supported exponent (4) keeps every intermediate value comfortably inside
+    /// i128 (worst case ~ SCALE^2 = 10^18, far under i128::MAX ~ 1.7 * 10^38).
+    const CURVE_SCALE: i128 = 1_000_000_000;
+
     fn claimable_internal(stream: &StreamData, now: u64) -> i128 {
         if now < stream.start_time || now < stream.cliff_time { return 0; }
         let elapsed = (now.min(stream.end_time) - stream.start_time) as i128;
         let duration = (stream.end_time - stream.start_time) as i128;
-        let vested = stream.total_amount * elapsed / duration;
+
+        let vested = match &stream.curve {
+            VestingCurve::Linear => stream.total_amount * elapsed / duration,
+            VestingCurve::Exponential(exponent) => {
+                // progress, as a fraction of CURVE_SCALE (0 at start_time, CURVE_SCALE at
+                // end_time) — computing this once, then repeatedly squaring/multiplying it
+                // by itself and rescaling, keeps every intermediate value near CURVE_SCALE^2
+                // at most instead of raising `elapsed` itself to the 4th power (which would
+                // overflow for any real-world stream duration).
+                let progress = elapsed * Self::CURVE_SCALE / duration;
+                let mut curved = progress;
+                for _ in 1..*exponent {
+                    curved = curved * progress / Self::CURVE_SCALE;
+                }
+                stream.total_amount * curved / Self::CURVE_SCALE
+            }
+            VestingCurve::Stepped(step_count) => {
+                let step_count = *step_count as i128;
+                // Whole steps completed so far — integer division deliberately truncates,
+                // so vesting jumps at each step boundary instead of interpolating within one.
+                let steps_elapsed = elapsed * step_count / duration;
+                stream.total_amount * steps_elapsed / step_count
+            }
+        };
+
         (vested - stream.withdrawn_amount).max(0)
     }
 }

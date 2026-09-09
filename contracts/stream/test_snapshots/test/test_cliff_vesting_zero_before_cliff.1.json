@@ -107,6 +107,13 @@
                   "bool": true
                 },
                 {
+                  "vec": [
+                    {
+                      "symbol": "Linear"
+                    }
+                  ]
+                },
+                {
                   "bytes": ""
                 },
                 {
@@ -299,6 +306,18 @@
                     },
                     "val": {
                       "u64": "1050000"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "curve"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Linear"
+                        }
+                      ]
                     }
                   },
                   {

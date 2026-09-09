@@ -102,6 +102,14 @@ export async function verifyRealProofOnChain(): Promise<boolean> {
   return tx.result as boolean;
 }
 
+/** Matches the on-chain `VestingCurve` enum's expected encoding shape for the real Stellar
+ * SDK contract client (`{tag: "VariantName", values: [...]}` — the standard convention its
+ * ContractSpec-driven argument encoding uses for a Rust enum, whether tuple or unit variant). */
+export type VestingCurve =
+  | { tag: "Linear"; values: void }
+  | { tag: "Exponential"; values: readonly [number] }
+  | { tag: "Stepped"; values: readonly [number] };
+
 export interface OnChainStream {
   sender: string;
   recipient: string;
@@ -113,6 +121,7 @@ export interface OnChainStream {
   end_time: bigint;
   active: boolean;
   cancelable: boolean;
+  curve: VestingCurve;
 }
 
 /** Real, live create_stream call against the real deployed stream contract, using the one
@@ -146,6 +155,7 @@ export async function createRealDemoStream(senderPublicKey: string, recipient: s
       cliff_time: BigInt(now + START_BUFFER_SECONDS),
       end_time: BigInt(now + START_BUFFER_SECONDS + STREAM_DURATION_SECONDS),
       cancelable: true,
+      curve: { tag: "Linear", values: undefined } satisfies VestingCurve,
       proof: Buffer.from(REAL_RANGE_PROOF_BYTES),
       public_inputs: REAL_RANGE_PROOF_PUBLIC_INPUTS.map((b) => Buffer.from(b)),
     },

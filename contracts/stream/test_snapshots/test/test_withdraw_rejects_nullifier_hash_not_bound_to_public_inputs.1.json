@@ -98,7 +98,7 @@
                   "u64": "1001000"
                 },
                 {
-                  "u64": "1010000"
+                  "u64": "1001000"
                 },
                 {
                   "u64": "1100000"
@@ -151,8 +151,8 @@
   ],
   "ledger": {
     "protocol_version": 25,
-    "sequence_number": 10,
-    "timestamp": 1000000,
+    "sequence_number": 11,
+    "timestamp": 1050500,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 10,
     "min_persistent_entry_ttl": 10,
@@ -304,7 +304,7 @@
                       "symbol": "cliff_time"
                     },
                     "val": {
-                      "u64": "1010000"
+                      "u64": "1001000"
                     }
                   },
                   {
