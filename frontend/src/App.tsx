@@ -187,7 +187,16 @@ export const App: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#090d16', color: '#e2e8f0' }}>
       <div style={{ background: 'linear-gradient(135deg, #0f766e, #065f46)', color: '#fff', padding: '0.65rem 1.5rem', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
-        ✓ Wired to real deployed testnet contracts. Creating a stream is limited to one fixed, pre-proven amount (0.5 XLM) — see banner in soroban.ts for why.
+        ✓ Wired to real deployed testnet contracts. Creating a stream is limited to one fixed, pre-proven amount (0.5 XLM) — see banner in{' '}
+        <a
+          href="https://github.com/stellar-zklab/stellar-zkstream/blob/main/frontend/src/soroban.ts"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#fff', textDecoration: 'underline' }}
+        >
+          soroban.ts
+        </a>{' '}
+        for why.
       </div>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
@@ -284,7 +293,16 @@ export const App: React.FC = () => {
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Stream amount is fixed at {Number(DEMO_STREAM_AMOUNT_STROOPS) / 1e7} XLM for this demo — see the banner at the top of soroban.ts for why.
+                  Stream amount is fixed at {Number(DEMO_STREAM_AMOUNT_STROOPS) / 1e7} XLM for this demo — see the banner at the top of{' '}
+                  <a
+                    href="https://github.com/stellar-zklab/stellar-zkstream/blob/main/frontend/src/soroban.ts"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#818cf8' }}
+                  >
+                    soroban.ts
+                  </a>{' '}
+                  for why.
                 </div>
 
                 <button
