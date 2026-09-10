@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './index.css';
 import {
   connectWallet,
   verifyRealProofOnChain,
   createRealDemoStream,
   getRealStream,
+  getRealClaimableAmount,
   DEMO_STREAM_AMOUNT_STROOPS,
   STREAM_CONTRACT_ID,
   RANGE_PROOF_VERIFIER_ID,
 } from './soroban';
+
+const formatXlm = (stroops: bigint): string => (Number(stroops) / 1e7).toFixed(7);
+
+// How often the claimable amount is re-read from the real contract while the Streams tab
+// is open. This is a real poll against real on-chain state each time, not a client-side
+// interpolation — the stream's vesting curve isn't always linear (see VestingCurve in
+// soroban.ts), so estimating it locally between reads could show a number that doesn't
+// match what the contract would actually pay out. Real reads, shown often enough to feel
+// live, is the honest version of that pattern.
+const CLAIMABLE_POLL_MS = 4000;
 
 // This UI is wired to REAL, deployed Stellar testnet contracts (see soroban.ts and
 // deployments/testnet.json at the repo root) — not a mock. Two things remain honestly
@@ -25,6 +36,9 @@ interface StreamItem {
   totalAmount: number;
   vestedAmount: number;
   status: string;
+  isReal: boolean;
+  claimable: bigint | null;
+  claimableUpdatedAt: number | null;
 }
 
 export const App: React.FC = () => {
@@ -33,7 +47,11 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'create' | 'outflow'>('create');
   const [recipient, setRecipient] = useState('');
   const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+  const [verifyResult, setVerifyResult] = useState<boolean | null>(null);
+  const [verifyErrorMsg, setVerifyErrorMsg] = useState<string | null>(null);
+  const [verifyDurationMs, setVerifyDurationMs] = useState<number | null>(null);
 
   const [logs, setLogs] = useState<string[]>([
     `[REAL] This app talks to real deployed contracts on Stellar testnet — stream: ${STREAM_CONTRACT_ID}`,
@@ -42,6 +60,49 @@ export const App: React.FC = () => {
   const [streams, setStreams] = useState<StreamItem[]>([]);
 
   const appendLog = (line: string) => setLogs((prev) => [...prev, line]);
+
+  // Keeps a live-updating copy of `streams` reachable from the polling interval below
+  // without re-subscribing the interval every time a claimable amount changes.
+  const streamsRef = useRef<StreamItem[]>([]);
+  useEffect(() => {
+    streamsRef.current = streams;
+  }, [streams]);
+
+  // Real, live claimable_amount() reads for every real stream, refreshed on an interval
+  // while the Streams tab is open — see CLAIMABLE_POLL_MS's comment above for why this
+  // polls the real contract instead of interpolating the number locally.
+  useEffect(() => {
+    if (activeTab !== 'outflow') return;
+    let cancelled = false;
+
+    const pollOnce = async () => {
+      const targets = streamsRef.current.filter((s) => s.isReal);
+      if (targets.length === 0) return;
+      const results = await Promise.all(
+        targets.map(async (s) => {
+          try {
+            return { id: s.id, claimable: await getRealClaimableAmount(s.id) };
+          } catch {
+            return null;
+          }
+        })
+      );
+      if (cancelled) return;
+      setStreams((prev) =>
+        prev.map((s) => {
+          const match = results.find((r) => r && r.id === s.id);
+          return match ? { ...s, claimable: match.claimable, claimableUpdatedAt: Date.now() } : s;
+        })
+      );
+    };
+
+    pollOnce();
+    const interval = setInterval(pollOnce, CLAIMABLE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeTab, streams.length]);
 
   const handleConnect = async () => {
     setWalletError(null);
@@ -56,15 +117,26 @@ export const App: React.FC = () => {
   };
 
   const handleVerifyOnChain = async () => {
-    setVerifying(true);
+    setVerifyStatus('verifying');
+    setVerifyResult(null);
+    setVerifyErrorMsg(null);
+    setVerifyDurationMs(null);
     appendLog(`[REAL] Calling vrfy_prf on the real deployed verifier (${RANGE_PROOF_VERIFIER_ID.substring(0, 8)}...) with a real Groth16 proof...`);
+    const startedAt = performance.now();
     try {
       const result = await verifyRealProofOnChain();
-      appendLog(`[REAL] Testnet responded: vrfy_prf() = ${result}. This is a live simulateTransaction call, not a mock.`);
+      const elapsed = Math.round(performance.now() - startedAt);
+      setVerifyDurationMs(elapsed);
+      setVerifyResult(result);
+      setVerifyStatus('success');
+      appendLog(`[REAL] Testnet responded in ${elapsed}ms: vrfy_prf() = ${result}. This is a live simulateTransaction call, not a mock.`);
     } catch (err: any) {
-      appendLog(`[REAL] On-chain verification call failed: ${err.message ?? err}`);
-    } finally {
-      setVerifying(false);
+      const elapsed = Math.round(performance.now() - startedAt);
+      setVerifyDurationMs(elapsed);
+      const message = err.message ?? String(err);
+      setVerifyErrorMsg(message);
+      setVerifyStatus('error');
+      appendLog(`[REAL] On-chain verification call failed after ${elapsed}ms: ${message}`);
     }
   };
 
@@ -75,7 +147,7 @@ export const App: React.FC = () => {
     if (!walletAddress) {
       appendLog('[DEMO] No wallet connected — showing a local-only illustrative row. Connect a real wallet above to submit a real transaction.');
       setStreams((prev) => [
-        { id: prev.length, type: 'outflow', counterparty: recipient.trim(), totalAmount: 0.5, vestedAmount: 0, status: 'Demo — not a real stream' },
+        { id: prev.length, type: 'outflow', counterparty: recipient.trim(), totalAmount: 0.5, vestedAmount: 0, status: 'Demo — not a real stream', isReal: false, claimable: null, claimableUpdatedAt: null },
         ...prev,
       ]);
       setRecipient('');
@@ -97,6 +169,9 @@ export const App: React.FC = () => {
           totalAmount: Number(stream.total_amount) / 1e7,
           vestedAmount: 0,
           status: 'Real — confirmed on testnet',
+          isReal: true,
+          claimable: null,
+          claimableUpdatedAt: null,
         },
         ...prev,
       ]);
@@ -127,10 +202,10 @@ export const App: React.FC = () => {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <button
               onClick={handleVerifyOnChain}
-              disabled={verifying}
-              style={{ padding: '0.5rem 1rem', background: '#1e293b', color: '#5eead4', border: '1px solid #334155', borderRadius: '6px', cursor: verifying ? 'wait' : 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+              disabled={verifyStatus === 'verifying'}
+              style={{ padding: '0.5rem 1rem', background: '#1e293b', color: '#5eead4', border: '1px solid #334155', borderRadius: '6px', cursor: verifyStatus === 'verifying' ? 'wait' : 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
             >
-              {verifying ? 'Verifying on-chain...' : 'Verify Real Proof On-Chain'}
+              {verifyStatus === 'verifying' ? 'Verifying on-chain...' : 'Verify Real Proof On-Chain'}
             </button>
             <button
               onClick={handleConnect}
@@ -147,6 +222,33 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {verifyStatus !== 'idle' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.85rem 1.1rem',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              background: verifyStatus === 'error' ? 'rgba(190, 18, 60, 0.15)' : verifyStatus === 'success' ? 'rgba(15, 118, 110, 0.15)' : 'rgba(30, 41, 59, 0.6)',
+              border: `1px solid ${verifyStatus === 'error' ? 'rgba(190, 18, 60, 0.4)' : verifyStatus === 'success' ? 'rgba(15, 118, 110, 0.4)' : '#334155'}`,
+              color: verifyStatus === 'error' ? '#fda4af' : verifyStatus === 'success' ? '#5eead4' : '#94a3b8',
+            }}
+          >
+            {verifyStatus === 'verifying' && (
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2px solid #38bdf8', borderTopColor: 'transparent', animation: 'zkstream-spin 0.7s linear infinite', flexShrink: 0 }} />
+            )}
+            {verifyStatus === 'success' && <span style={{ fontSize: '1rem' }}>✓</span>}
+            {verifyStatus === 'error' && <span style={{ fontSize: '1rem' }}>✕</span>}
+            <span>
+              {verifyStatus === 'verifying' && 'Running a real Groth16 BN254 pairing check against Soroban’s native host functions on testnet — this is a genuine cryptographic computation, not instant, usually a few seconds.'}
+              {verifyStatus === 'success' && `Verified on-chain in ${verifyDurationMs}ms — the deployed verifier returned ${verifyResult}. A real network round trip, not a cached result.`}
+              {verifyStatus === 'error' && `On-chain verification failed after ${verifyDurationMs}ms: ${verifyErrorMsg}`}
+            </span>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
 
           <section style={{ background: '#111827', padding: '1.75rem', borderRadius: '10px', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -159,9 +261,12 @@ export const App: React.FC = () => {
               </button>
               <button
                 onClick={() => setActiveTab('outflow')}
-                style={{ background: 'none', border: 'none', color: activeTab === 'outflow' ? '#06b6d4' : '#94a3b8', borderBottom: activeTab === 'outflow' ? '2px solid #06b6d4' : 'none', paddingBottom: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+                style={{ background: 'none', border: 'none', color: activeTab === 'outflow' ? '#06b6d4' : '#94a3b8', borderBottom: activeTab === 'outflow' ? '2px solid #06b6d4' : 'none', paddingBottom: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
               >
                 Streams ({streams.length})
+                {activeTab === 'outflow' && streams.some((s) => s.isReal) && (
+                  <span title="Live — polling claimable_amount() every 4s" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', animation: 'zkstream-pulse 1.6s ease-in-out infinite' }} />
+                )}
               </button>
             </div>
 
@@ -201,6 +306,7 @@ export const App: React.FC = () => {
                       <th style={{ padding: '0.5rem' }}>ID</th>
                       <th style={{ padding: '0.5rem' }}>Recipient</th>
                       <th style={{ padding: '0.5rem' }}>Total</th>
+                      <th style={{ padding: '0.5rem' }}>Claimable</th>
                       <th style={{ padding: '0.5rem' }}>Status</th>
                     </tr>
                   </thead>
@@ -210,6 +316,19 @@ export const App: React.FC = () => {
                         <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600, color: '#38bdf8' }}>#{s.id}</td>
                         <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'monospace' }}>{s.counterparty.substring(0, 8) || 'n/a'}...</td>
                         <td style={{ padding: '0.75rem 0.5rem' }}>{s.totalAmount} XLM</td>
+                        <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'monospace' }}>
+                          {s.isReal ? (
+                            s.claimable === null ? (
+                              <span style={{ color: '#64748b' }}>reading...</span>
+                            ) : (
+                              <span key={s.claimableUpdatedAt} style={{ borderRadius: '4px', padding: '0.1rem 0.3rem', animation: 'zkstream-flash 1s ease-out' }}>
+                                {formatXlm(s.claimable)} XLM
+                              </span>
+                            )
+                          ) : (
+                            <span style={{ color: '#64748b' }}>—</span>
+                          )}
+                        </td>
                         <td style={{ padding: '0.75rem 0.5rem', color: s.status.startsWith('Real') ? '#5eead4' : '#fbbf24' }}>{s.status}</td>
                       </tr>
                     ))}
