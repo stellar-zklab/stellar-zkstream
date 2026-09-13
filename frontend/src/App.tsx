@@ -121,7 +121,7 @@ export const App: React.FC = () => {
     setVerifyResult(null);
     setVerifyErrorMsg(null);
     setVerifyDurationMs(null);
-    appendLog(`[REAL] Calling vrfy_prf on the real deployed verifier (${RANGE_PROOF_VERIFIER_ID.substring(0, 8)}...) with a real Groth16 proof...`);
+    appendLog(`[REAL] Calling the real deployed verifier (${RANGE_PROOF_VERIFIER_ID.substring(0, 8)}...) with a real Groth16 proof...`);
     const startedAt = performance.now();
     try {
       const result = await verifyRealProofOnChain();
@@ -129,7 +129,7 @@ export const App: React.FC = () => {
       setVerifyDurationMs(elapsed);
       setVerifyResult(result);
       setVerifyStatus('success');
-      appendLog(`[REAL] Testnet responded in ${elapsed}ms: vrfy_prf() = ${result}. This is a live simulateTransaction call, not a mock.`);
+      appendLog(`[REAL] Testnet responded in ${elapsed}ms: verification result = ${result}. This is a live on-chain call, not a mock.`);
     } catch (err: any) {
       const elapsed = Math.round(performance.now() - startedAt);
       setVerifyDurationMs(elapsed);
@@ -156,7 +156,7 @@ export const App: React.FC = () => {
     }
 
     setLoading(true);
-    appendLog(`[REAL] Submitting a real create_stream transaction for ${Number(DEMO_STREAM_AMOUNT_STROOPS) / 1e7} XLM (fixed demo amount — see soroban.ts) — this needs your wallet signature.`);
+    appendLog(`[REAL] Submitting a real stream-creation transaction for ${Number(DEMO_STREAM_AMOUNT_STROOPS) / 1e7} XLM (fixed demo amount) — this needs your wallet signature.`);
     try {
       const streamId = await createRealDemoStream(walletAddress, recipient.trim());
       appendLog(`[REAL] Transaction confirmed. Real stream #${streamId} created on testnet.`);
@@ -178,7 +178,7 @@ export const App: React.FC = () => {
       setRecipient('');
       setActiveTab('outflow');
     } catch (err: any) {
-      appendLog(`[REAL] create_stream failed: ${err.message ?? err}`);
+      appendLog(`[REAL] Stream creation failed: ${err.message ?? err}`);
     } finally {
       setLoading(false);
     }
@@ -274,7 +274,7 @@ export const App: React.FC = () => {
               >
                 Streams ({streams.length})
                 {activeTab === 'outflow' && streams.some((s) => s.isReal) && (
-                  <span title="Live — polling claimable_amount() every 4s" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', animation: 'zkstream-pulse 1.6s ease-in-out infinite' }} />
+                  <span title="Live — refreshing every 4s" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5eead4', animation: 'zkstream-pulse 1.6s ease-in-out infinite' }} />
                 )}
               </button>
             </div>
