@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { StellarZkStreamClient } from '../src/client';
 
-const dummySign = vi.fn(async (xdr: string) => xdr);
+const dummySign = vi.fn(async (xdr: string) => ({ signedTxXdr: xdr }));
 
 describe('StellarZkStreamClient config', () => {
   it('constructs without a verifierId', () => {

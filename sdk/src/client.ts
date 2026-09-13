@@ -14,11 +14,12 @@
  * generated out-of-band via snarkjs against ../circuits/build/range_proof.
  */
 import { Client as ContractClient } from '@stellar/stellar-sdk/contract';
+import type { WalletError } from '@stellar/stellar-sdk/contract';
 
 export type SignTransaction = (
   xdr: string,
-  opts?: { network?: string; networkPassphrase?: string; accountToSign?: string }
-) => Promise<string>;
+  opts?: { networkPassphrase?: string; address?: string; submit?: boolean; submitUrl?: string }
+) => Promise<{ signedTxXdr: string; signerAddress?: string; error?: WalletError }>;
 
 export interface StellarZkStreamConfig {
   streamContractId: string;

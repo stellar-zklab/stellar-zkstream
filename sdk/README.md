@@ -21,10 +21,7 @@ import freighter from '@stellar/freighter-api';
 const zkstream = new StellarZkStreamClient({
   streamContractId: 'CACRWU5VCHIGBMSJZMWDXE3L6UJNJIQ7O4FH32ER3M77AO3Z23562MPH',
   verifierId: 'CARWCSIHZ7HCXDCCLRN2JX7SYDAKMZXI53M6AGUUXPRLLT3UJ3WIDLIY',
-  signTransaction: async (xdr, opts) => {
-    const { signedTxXdr } = await freighter.signTransaction(xdr, opts);
-    return signedTxXdr;
-  },
+  signTransaction: async (xdr, opts) => freighter.signTransaction(xdr, opts),
 });
 
 const streamId = await zkstream.createStream({
