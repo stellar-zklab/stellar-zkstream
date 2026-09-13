@@ -6,7 +6,10 @@ import {
   createRealDemoStream,
   getRealStream,
   getRealClaimableAmount,
+  withdrawRealDemoStream,
   DEMO_STREAM_AMOUNT_STROOPS,
+  DEMO_WITHDRAW_STREAM_ID,
+  DEMO_WITHDRAW_RECIPIENT,
   STREAM_CONTRACT_ID,
   RANGE_PROOF_VERIFIER_ID,
 } from './soroban';
@@ -59,6 +62,10 @@ export const App: React.FC = () => {
 
   const [streams, setStreams] = useState<StreamItem[]>([]);
 
+  const [demoClaimable, setDemoClaimable] = useState<bigint | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawResult, setWithdrawResult] = useState<{ amount: bigint } | null>(null);
+
   const appendLog = (line: string) => setLogs((prev) => [...prev, line]);
 
   // Keeps a live-updating copy of `streams` reachable from the polling interval below
@@ -103,6 +110,42 @@ export const App: React.FC = () => {
       clearInterval(interval);
     };
   }, [activeTab, streams.length]);
+
+  // Real, live read of the fixed demo stream's claimable amount — public state, no wallet
+  // needed. Refreshed on the same interval as the Streams tab's polling.
+  useEffect(() => {
+    let cancelled = false;
+    const pollDemoClaimable = async () => {
+      try {
+        const amount = await getRealClaimableAmount(DEMO_WITHDRAW_STREAM_ID);
+        if (!cancelled) setDemoClaimable(amount);
+      } catch {
+        /* leave the last known value showing rather than flash an error on a transient RPC blip */
+      }
+    };
+    pollDemoClaimable();
+    const interval = setInterval(pollDemoClaimable, CLAIMABLE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleWithdraw = async () => {
+    if (!walletAddress) return;
+    setWithdrawing(true);
+    setWithdrawResult(null);
+    appendLog(`[REAL] Calling the real deployed stream contract's withdraw with a real Groth16 nullifier proof for stream #${DEMO_WITHDRAW_STREAM_ID} — this needs your wallet signature and will genuinely revert unless this wallet is the stream's recipient.`);
+    try {
+      const paid = await withdrawRealDemoStream(walletAddress);
+      appendLog(`[REAL] Withdrawal succeeded. Real testnet XLM paid out: ${formatXlm(paid)} XLM. A real nullifier proof passed a real on-chain Groth16 pairing check.`);
+      setWithdrawResult({ amount: paid });
+    } catch (err: any) {
+      appendLog(`[REAL] Withdraw reverted on-chain: ${err.message ?? err}. Expected unless this wallet is the demo stream's recipient (${DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...), or if this proof's nullifier has already been used once.`);
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const handleConnect = async () => {
     setWalletError(null);
@@ -372,6 +415,31 @@ export const App: React.FC = () => {
           </section>
 
         </div>
+
+        <section style={{ background: '#111827', padding: '1.75rem', borderRadius: '10px', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#f8fafc' }}>Withdraw Demo Stream (Real)</h2>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
+            Real, live withdraw against stream #{DEMO_WITHDRAW_STREAM_ID}, a real stream created ahead of time with a real 5,000,000-stroop escrow. Submits the one real Groth16 nullifier proof this demo has — it only works once, ever, and only for this stream's actual recipient ({DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...); any other connected wallet will get a real, honest on-chain revert.
+          </p>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+            Real claimable right now:{' '}
+            <strong style={{ color: '#f8fafc', fontFamily: 'monospace' }}>
+              {demoClaimable === null ? 'reading...' : `${formatXlm(demoClaimable)} XLM`}
+            </strong>
+          </div>
+          <button
+            onClick={handleWithdraw}
+            disabled={!walletAddress || withdrawing}
+            style={{ padding: '0.75rem', background: !walletAddress || withdrawing ? '#374151' : '#0891b2', color: '#ffffff', border: 'none', borderRadius: '6px', cursor: !walletAddress || withdrawing ? 'default' : 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+          >
+            {!walletAddress ? 'Connect Wallet First' : withdrawing ? 'Withdrawing on-chain...' : 'Withdraw (Real Nullifier Proof)'}
+          </button>
+          {withdrawResult && (
+            <div style={{ background: 'rgba(15, 118, 110, 0.15)', border: '1px solid rgba(15, 118, 110, 0.4)', color: '#5eead4', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+              Real withdrawal confirmed on testnet: {formatXlm(withdrawResult.amount)} XLM paid out.
+            </div>
+          )}
+        </section>
 
       </div>
     </div>

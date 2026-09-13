@@ -176,3 +176,45 @@ export async function getRealClaimableAmount(streamId: number): Promise<bigint> 
   const tx = await (client as any).claimable_amount({ stream_id: streamId });
   return tx.result as bigint;
 }
+
+// A real, already-created demo stream (#1, created 2026-09-13) — sender and recipient are
+// both the deployer address, the same fixed demo identity used throughout this ecosystem.
+// Real 5,000,000-stroop XLM escrowed, real range proof, vesting linearly over a real hour.
+// Needed because withdraw's nullifier proof binds to a specific stream_id (unlike the
+// fixed range proof above, which doesn't depend on runtime state) — see
+// circuits/README.md for how this one was generated with the existing compiled circuit,
+// no trusted-setup repeat needed.
+export const DEMO_WITHDRAW_STREAM_ID = 1;
+export const DEMO_WITHDRAW_RECIPIENT = 'GAUZ4T6UT7XMGOL6WYPWWSYPZQ7ZLILCAS2ROYCH5ILHHOWQYUGVRTAB';
+const REAL_NULLIFIER_HASH_HEX = '215dba43ac31f0c761a6b8def23a7119dedddc0941edf44a0b17bb919080f2a5';
+const REAL_NULLIFIER_PROOF_HEX =
+  '1cb0c931ef7b9dd384aefc3154d14f10ea557986f9458df1bc4277c9ef7366180a57a22e15d659c6d4f7888cb3aad97170c7b1631c3a4c12c507382835b12d70093de1e499763423448b24af73c142b543c341fbdc9f19fbd56eea16c322768c09914068834fafbf8b24e6eca1a1d71b2dbb279fdadaa4f9a48fe37618b7561c24397b8226ed7c5c341f031dfb8ad405c16a1993641e6a39095557bb36b2247025e2d7a1a7c50ae929e509c8d46c02b6d511487915692b49c969dcc25c5cded3026f87ec2399d3e345e2ccadf42490c6d0e2ea2c35980acd5533b7ab734a6f5d2880fcfc2367f9e83ab5729221d31918fa844504e38264b6a319f7cf14fb0fc8';
+const REAL_NULLIFIER_PUBLIC_INPUTS_HEX = [
+  '0000000000000000000000000000000000000000000000000000000000000001',
+  REAL_NULLIFIER_HASH_HEX,
+];
+
+/** Real, live withdraw() call against the real deployed stream contract, submitting the
+ * one real nullifier proof this demo has for stream #DEMO_WITHDRAW_STREAM_ID. Requires a
+ * connected wallet's signature — `caller` must genuinely be that stream's recipient
+ * (DEMO_WITHDRAW_RECIPIENT) for the on-chain call to succeed; any other connected wallet
+ * will submit a real transaction that genuinely reverts on-chain with "only recipient can
+ * withdraw", the same honest-failure pattern this ecosystem's other write-path demos
+ * (credential claim, faucet claim) already use. This proof can only be used once, ever —
+ * once someone genuinely withdraws with it, the nullifier is marked used on-chain and
+ * every subsequent attempt (including the real recipient's) will honestly revert too. */
+export async function withdrawRealDemoStream(callerPublicKey: string): Promise<bigint> {
+  const client = await getClient(STREAM_CONTRACT_ID, callerPublicKey);
+  const tx = await (client as any).withdraw(
+    {
+      stream_id: DEMO_WITHDRAW_STREAM_ID,
+      caller: callerPublicKey,
+      nullifier_hash: Buffer.from(hexToBytes(REAL_NULLIFIER_HASH_HEX)),
+      nullifier_proof: Buffer.from(hexToBytes(REAL_NULLIFIER_PROOF_HEX)),
+      public_inputs: REAL_NULLIFIER_PUBLIC_INPUTS_HEX.map((h) => Buffer.from(hexToBytes(h))),
+    },
+    { timeoutInSeconds: 1800 }
+  );
+  const sent = await tx.signAndSend();
+  return sent.result as bigint;
+}
