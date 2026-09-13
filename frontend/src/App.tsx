@@ -135,13 +135,13 @@ export const App: React.FC = () => {
     if (!walletAddress) return;
     setWithdrawing(true);
     setWithdrawResult(null);
-    appendLog(`[REAL] Calling the real deployed stream contract's withdraw with a real Groth16 nullifier proof for stream #${DEMO_WITHDRAW_STREAM_ID} — this needs your wallet signature and will genuinely revert unless this wallet is the stream's recipient.`);
+    appendLog(`[REAL] Calling the real deployed stream contract to withdraw — this needs your wallet signature and will genuinely revert unless this wallet is the stream's recipient.`);
     try {
       const paid = await withdrawRealDemoStream(walletAddress);
-      appendLog(`[REAL] Withdrawal succeeded. Real testnet XLM paid out: ${formatXlm(paid)} XLM. A real nullifier proof passed a real on-chain Groth16 pairing check.`);
+      appendLog(`[REAL] Withdrawal succeeded. Real testnet XLM paid out: ${formatXlm(paid)} XLM.`);
       setWithdrawResult({ amount: paid });
     } catch (err: any) {
-      appendLog(`[REAL] Withdraw reverted on-chain: ${err.message ?? err}. Expected unless this wallet is the demo stream's recipient (${DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...), or if this proof's nullifier has already been used once.`);
+      appendLog(`[REAL] Withdraw reverted on-chain: ${err.message ?? err}. Expected unless this wallet is the demo stream's recipient (${DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...), or if this has already been withdrawn once.`);
     } finally {
       setWithdrawing(false);
     }
@@ -164,7 +164,7 @@ export const App: React.FC = () => {
     setVerifyResult(null);
     setVerifyErrorMsg(null);
     setVerifyDurationMs(null);
-    appendLog(`[REAL] Calling the real deployed verifier (${RANGE_PROOF_VERIFIER_ID.substring(0, 8)}...) with a real Groth16 proof...`);
+    appendLog(`[REAL] Calling the real deployed verifier (${RANGE_PROOF_VERIFIER_ID.substring(0, 8)}...)...`);
     const startedAt = performance.now();
     try {
       const result = await verifyRealProofOnChain();
@@ -294,7 +294,7 @@ export const App: React.FC = () => {
             {verifyStatus === 'success' && <span style={{ fontSize: '1rem' }}>✓</span>}
             {verifyStatus === 'error' && <span style={{ fontSize: '1rem' }}>✕</span>}
             <span>
-              {verifyStatus === 'verifying' && 'Running a real Groth16 BN254 pairing check against Soroban’s native host functions on testnet — this is a genuine cryptographic computation, not instant, usually a few seconds.'}
+              {verifyStatus === 'verifying' && 'Running a real cryptographic verification against the deployed contract on testnet — this takes a few seconds, it’s not instant.'}
               {verifyStatus === 'success' && `Verified on-chain in ${verifyDurationMs}ms — the deployed verifier returned ${verifyResult}. A real network round trip, not a cached result.`}
               {verifyStatus === 'error' && `On-chain verification failed after ${verifyDurationMs}ms: ${verifyErrorMsg}`}
             </span>
@@ -419,7 +419,7 @@ export const App: React.FC = () => {
         <section style={{ background: '#111827', padding: '1.75rem', borderRadius: '10px', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#f8fafc' }}>Withdraw Demo Stream (Real)</h2>
           <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
-            Real, live withdraw against stream #{DEMO_WITHDRAW_STREAM_ID}, a real stream created ahead of time with a real 5,000,000-stroop escrow. Submits the one real Groth16 nullifier proof this demo has — it only works once, ever, and only for this stream's actual recipient ({DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...); any other connected wallet will get a real, honest on-chain revert.
+            Withdraws real vested funds from a real demo stream set up in advance. This only works once, and only for that stream's original recipient ({DEMO_WITHDRAW_RECIPIENT.substring(0, 8)}...) — connecting a different wallet will genuinely fail on-chain rather than pretend to succeed.
           </p>
           <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
             Real claimable right now:{' '}
