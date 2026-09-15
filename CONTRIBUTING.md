@@ -90,7 +90,7 @@ We follow Conventional Commits for transparent versioning:
 
 ## 📋 How to Claim an Issue & Submit a PR
 
-1. **Pick an Issue**: Browse open tasks on our [GitHub Issues Page](https://github.com/stellar-zklab/stellar-zkstream/issues). Look for [`good-first-issue`](https://github.com/stellar-zklab/stellar-zkstream/issues?q=is%3Aissue+is%3Aopen+label%3A%22good-first-issue%22) if you are new to the codebase.
+1. **Pick an Issue**: Browse open tasks on our [GitHub Issues Page](https://github.com/stellar-zklab/stellar-zkstream/issues). Look for [`good first issue`](https://github.com/stellar-zklab/stellar-zkstream/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) if you are new to the codebase.
 2. **Create a Branch**: `git checkout -b feat/your-feature-name`
 3. **Verify Locally**: Run `bash scripts/check-source-artifacts.sh` and ensure `cargo test --all --features testutils` passes cleanly — the same checks CI runs.
 4. **Submit PR**: Open a Pull Request referencing the issue number (e.g. `Closes #12`).
