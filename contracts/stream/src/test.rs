@@ -31,7 +31,7 @@ fn setup() -> (Env, Address, Address, Address, Address) {
     env.mock_all_auths();
     env.ledger().set(LedgerInfo {
         timestamp: 1_000_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 10,
         network_id: Default::default(),
         base_reserve: 10,
@@ -100,7 +100,7 @@ fn test_cliff_vesting_zero_before_cliff() {
     // Set ledger timestamp to 1_020_000 (after start but BEFORE cliff)
     env.ledger().set(LedgerInfo {
         timestamp: 1_020_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -239,7 +239,7 @@ fn test_cancel_stream_reentrancy_is_blocked_by_the_soroban_host_itself() {
     env.mock_all_auths();
     env.ledger().set(LedgerInfo {
         timestamp: 1_000_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 10,
         network_id: Default::default(),
         base_reserve: 10,
@@ -269,7 +269,7 @@ fn test_cancel_stream_reentrancy_is_blocked_by_the_soroban_host_itself() {
     // Halfway through the stream: half is vested, half remains unvested.
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -314,7 +314,7 @@ fn test_withdraw_success_with_bound_nullifier() {
 
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500, // halfway vested
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -350,7 +350,7 @@ fn test_withdraw_rejects_a_replayed_nullifier() {
 
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -393,7 +393,7 @@ fn test_withdraw_rejects_nullifier_hash_not_bound_to_public_inputs() {
 
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -430,7 +430,7 @@ fn test_cancel_stream_splits_vested_and_unvested_correctly() {
 
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500, // halfway vested
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -502,7 +502,7 @@ fn test_exponential_curve_vests_quadratically_not_linearly() {
     // 25% of the total — not 50%, which is what Linear would give at this same timestamp.
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -515,7 +515,7 @@ fn test_exponential_curve_vests_quadratically_not_linearly() {
     // Fully elapsed: an exponential curve still reaches exactly 100% at end_time, same as Linear.
     env.ledger().set(LedgerInfo {
         timestamp: 1_100_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 12,
         network_id: Default::default(),
         base_reserve: 10,
@@ -546,7 +546,7 @@ fn test_stepped_curve_vests_in_discrete_jumps_not_continuously() {
     // Just before the first step boundary (25_000s in) — zero steps completed, nothing vested.
     env.ledger().set(LedgerInfo {
         timestamp: 1_024_999,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
@@ -559,7 +559,7 @@ fn test_stepped_curve_vests_in_discrete_jumps_not_continuously() {
     // Exactly at the first step boundary — one of four steps completed, 25% vested.
     env.ledger().set(LedgerInfo {
         timestamp: 1_025_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 12,
         network_id: Default::default(),
         base_reserve: 10,
@@ -573,7 +573,7 @@ fn test_stepped_curve_vests_in_discrete_jumps_not_continuously() {
     // give here, since a step boundary happens to land exactly on the midpoint for 4 steps.
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_000,
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 13,
         network_id: Default::default(),
         base_reserve: 10,
@@ -670,7 +670,7 @@ fn test_transfer_stream_moves_withdraw_rights_to_the_new_recipient() {
 
     env.ledger().set(LedgerInfo {
         timestamp: 1_050_500, // halfway vested
-        protocol_version: 25,
+        protocol_version: 27,
         sequence_number: 11,
         network_id: Default::default(),
         base_reserve: 10,
