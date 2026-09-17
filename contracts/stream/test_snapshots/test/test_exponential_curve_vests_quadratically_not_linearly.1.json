@@ -5,6 +5,7 @@
     "mux_id": 0
   },
   "auth": [
+    [],
     [
       [
         "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEGWF",
@@ -154,7 +155,7 @@
     []
   ],
   "ledger": {
-    "protocol_version": 25,
+    "protocol_version": 27,
     "sequence_number": 12,
     "timestamp": 1100000,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",

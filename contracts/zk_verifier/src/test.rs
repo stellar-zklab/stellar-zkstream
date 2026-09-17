@@ -92,7 +92,7 @@ mod real_proof {
     use ark_ff::{BigInteger, PrimeField};
     use ark_groth16::Groth16;
     use ark_relations::lc;
-    use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+    use ark_relations::gr1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
     use ark_snark::SNARK;
     use ark_std::rand::{rngs::StdRng, SeedableRng};
 
@@ -106,7 +106,7 @@ mod real_proof {
         fn generate_constraints(self, cs: ConstraintSystemRef<ArkFr>) -> Result<(), SynthesisError> {
             let x_var = cs.new_witness_variable(|| self.x.ok_or(SynthesisError::AssignmentMissing))?;
             let y_var = cs.new_input_variable(|| self.y.ok_or(SynthesisError::AssignmentMissing))?;
-            cs.enforce_constraint(lc!() + x_var, lc!() + x_var, lc!() + y_var)?;
+            cs.enforce_r1cs_constraint(|| lc!() + x_var, || lc!() + x_var, || lc!() + y_var)?;
             Ok(())
         }
     }
